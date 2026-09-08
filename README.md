@@ -5,9 +5,10 @@ duel : le cadrage produit vit dans [docs/](docs/).
 
 ```
 lexik/
-  backend/   FastAPI + Postgres + fastText   (source de vérité)
-  app/       Expo / React Native             (affichage)
-  docs/      le cadrage produit
+  backend/        FastAPI + Postgres + fastText   (source de vérité)
+  app/            Expo / React Native             (affichage)
+  docs/           le cadrage produit
+  lexik-design/   les maquettes dont l'app est tirée
 ```
 
 ---
@@ -22,7 +23,7 @@ lexik/
 | Moteur fastText et cache disque des paires | `backend/services/similarity.py` |
 | Client axios avec refresh de jeton et file d'attente | `app/src/api/client.js` |
 | Stockage sécurisé des jetons (`expo-secure-store`) | `app/src/api/auth.js` |
-| Config Expo, `react-native-google-mobile-ads` | `app/package.json` |
+| Config Expo et outillage EAS | `app/package.json` |
 
 **Jeté** — tout le duel et ses dépendances : `ws_manager`, `ws_messages`,
 `queue`, `amis`, `icons`, `themes`, `backgroundTasks`, `xp`, le modèle
@@ -178,7 +179,10 @@ bascule automatiquement sur le mode repli, ce qui suffit pour développer.
 | `VictoryOverlay.js` | section 10 du cadrage |
 | `SettingsScreen.js` | suppression de compte + sauvegarde |
 
-Thème clair et sombre, suivant le réglage système (`theme/colors.js`).
+**Thème clair imposé**, d'après les maquettes `*Clair.dc.html`. La palette
+sombre reste dans `theme/colors.js` avec exactement les mêmes noms de jetons :
+y revenir, ou suivre le réglage système, ne demande que de changer la ligne
+`const palette = themes.light` dans `App.js`.
 
 **Règle du système de couleur** : le dégradé sémantique (bleu → tiède → ambre →
 orange → rouge) est réservé aux **scores de proximité**. La progression de
@@ -194,8 +198,10 @@ ne veut dire deux choses.
 3. **Play Games** — voir [docs/play-games-setup.md](docs/play-games-setup.md).
    À faire tôt : mal configuré, ça échoue silencieusement et ça ne ressemble pas
    à un bug de code.
-4. **Publicité récompensée** — le crédit doit venir du callback serveur du
-   réseau publicitaire, jamais du client qui affirme avoir vu la vidéo.
+4. **Publicité récompensée** — `react-native-google-mobile-ads` a été retiré des
+   dépendances : module natif inutilisable dans Expo Go, et pas encore branché.
+   Le crédit devra venir du callback serveur du réseau publicitaire, jamais du
+   client qui affirme avoir vu la vidéo.
 5. **Achats** — Google Play Billing côté app, validation du reçu côté serveur.
 6. **Page web de suppression de compte** — accessible sans installer l'app.
 7. **Migrations** — `Base.metadata.create_all` suffit au démarrage ; passer à
