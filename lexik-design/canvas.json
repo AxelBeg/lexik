@@ -1,0 +1,71 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Menu principal — sombre"
+    },
+    {
+      "file": "Campagne.dc.html",
+      "x": 510,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Campagne — sombre"
+    },
+    {
+      "file": "Partie.dc.html",
+      "x": 1020,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Partie — sombre"
+    },
+    {
+      "file": "MainClair.dc.html",
+      "x": 0,
+      "y": 980,
+      "w": 390,
+      "h": 844,
+      "title": "Menu principal — clair"
+    },
+    {
+      "file": "CampagneClair.dc.html",
+      "x": 510,
+      "y": 980,
+      "w": 390,
+      "h": 844,
+      "title": "Campagne — clair"
+    },
+    {
+      "file": "PartieClair.dc.html",
+      "x": 1020,
+      "y": 980,
+      "w": 390,
+      "h": 844,
+      "title": "Partie — clair"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "systeme-couleur",
+      "x": 0,
+      "y": -200,
+      "w": 640,
+      "text": "Règle du système : le dégradé sémantique (bleu → neutre tiède → ambre → orange → rouge) est réservé AUX SCORES DE PROXIMITÉ, nulle part ailleurs.\nProgression campagne = gris neutre. Monnaie et indices = ambre. Aucune couleur ne veut dire deux choses.\n\nPas de barre d'état ni de clavier dessinés : le vrai téléphone les affiche par-dessus."
+    },
+    {
+      "id": "ligne-claire",
+      "x": 0,
+      "y": 855,
+      "w": 640,
+      "text": "Version claire — mêmes structures, mêmes règles. La rampe sémantique est retendue (plus sombre et plus saturée) : les couleurs lumineuses calibrées pour le fond noir perdent tout contraste sur blanc."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

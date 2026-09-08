@@ -1,0 +1,825 @@
+Oui. Vu que tu as déjà le moteur sémantique et une BDD existante, je te ferais un **prompt de cadrage complet**, orienté produit + UX + règles de jeu, sans repartir dans une architecture BDD inutile.
+
+Tu peux quasiment le donner tel quel à un agent de dev/code :
+
+---
+
+# Prompt — Jeu de mots sémantique quotidien + campagne
+
+Je développe un jeu de mots sémantique inspiré de Cémantix, mais avec une expérience beaucoup plus minimaliste, addictive et accessible.
+
+Le moteur de proximité sémantique existe déjà. La base de données et les entités existent également : **ne pas reconstruire inutilement le modèle de données**. L'objectif est plutôt de simplifier l'existant et de construire une expérience de jeu claire autour du moteur.
+
+## 1. Concept général
+
+Le joueur doit trouver un mot secret.
+
+Il propose librement des mots dans un champ de saisie.
+
+Pour chaque proposition, le jeu retourne un **score de proximité sémantique entre 0 et 100** :
+
+* `0` = très éloigné
+* `50` = relativement proche
+* `90+` = très proche
+* `100` = mot exact
+
+Le joueur doit progressivement comprendre la direction sémantique du mot grâce aux scores.
+
+Le cœur du jeu doit rester extrêmement simple :
+
+> **Je propose un mot → je vois à quel point je suis proche → j'ajuste ma réflexion → je recommence.**
+
+Il ne faut pas transformer le jeu en RPG ou en jeu de stratégie complexe.
+
+---
+
+# 2. Philosophie UX
+
+L'interface doit être **minimaliste**, avec une sensation proche d'un Sudoku / puzzle quotidien.
+
+Éviter :
+
+* les menus complexes ;
+* les dizaines de statistiques ;
+* les systèmes de niveaux trop explicites ;
+* les animations permanentes ;
+* les monnaies multiples ;
+* les mécaniques de progression artificielles ;
+* les éléments qui donnent directement des informations sur le thème du mot.
+
+Le joueur doit avoir l'impression d'être seul face à un problème à résoudre.
+
+L'interface principale doit essentiellement contenir :
+
+1. le score / feedback de proximité ;
+2. le champ pour proposer un mot ;
+3. la liste des mots déjà proposés ;
+4. éventuellement le bouton d'indice ;
+5. les informations très légères sur la progression.
+
+---
+
+# 3. Feedback visuel
+
+Le score doit être immédiatement compréhensible visuellement.
+
+Utiliser une progression de couleur :
+
+* très loin → bleu ;
+* intermédiaire → couleurs de transition ;
+* proche → orange ;
+* très proche → rouge vif ;
+* `100` → feedback particulier de réussite.
+
+L'objectif est que le joueur **ressente immédiatement la proximité** sans avoir besoin d'interpréter une interface compliquée.
+
+Exemple :
+
+```text
+chat                         21
+voiture                      34
+animal                       67
+mammifère                    78
+chien                        94
+```
+
+Plus le mot est proche, plus il doit visuellement attirer l'attention.
+
+Les animations doivent rester discrètes :
+
+* faible animation pour les scores ordinaires ;
+* légère pulsation pour les très bons scores ;
+* animation de réussite courte et satisfaisante à `100`.
+
+Ne pas faire une interface "mobile game" agressive.
+
+---
+
+# 4. Historique des propositions
+
+Tous les mots proposés par le joueur restent visibles.
+
+**Ils doivent être triés par proximité décroissante**, et non par ordre chronologique.
+
+Cela transforme progressivement l'historique en une sorte de **carte sémantique personnelle**.
+
+Exemple :
+
+```text
+                 VOLCAN 99
+             lave 94
+           éruption 89
+          montagne 82
+              feu 76
+          chaleur 69
+           pierre 51
+             mer 23
+```
+
+Le joueur doit pouvoir regarder cette liste et comprendre :
+
+> "OK, mes mots les plus proches tournent autour de cette direction."
+
+C'est une partie fondamentale du gameplay.
+
+La liste ne doit donc pas être considérée comme un simple historique technique.
+
+C'est **l'outil principal de réflexion du joueur**.
+
+---
+
+# 5. Indices
+
+Le jeu possède **une seule monnaie**.
+
+Cette monnaie sert exclusivement à obtenir des indices.
+
+Elle peut être obtenue :
+
+* en revenant jouer quotidiennement ;
+* éventuellement via une publicité récompensée ;
+* via un achat.
+
+Il ne doit pas y avoir d'autre monnaie ou système économique.
+
+La monnaie peut être accumulée sans limite stricte.
+
+## Important
+
+Avoir beaucoup de monnaie ne doit **jamais permettre de résoudre automatiquement un mot**.
+
+Les indices doivent seulement rapprocher progressivement le joueur de la solution.
+
+---
+
+# 6. Système d'indices
+
+Chaque mot possède au maximum **5 indices**.
+
+Les indices sont exclusivement des **mots sémantiquement proches du mot secret**.
+
+Pas de lettres révélées.
+
+Pas de première lettre.
+
+Pas de deuxième lettre.
+
+Pas de révélation directe du mot.
+
+Chaque indice est progressivement plus proche de la solution.
+
+Coût :
+
+```text
+Indice 1 → 1 monnaie
+Indice 2 → +2 monnaies
+Indice 3 → +3 monnaies
+Indice 4 → +4 monnaies
+Indice 5 → +5 monnaies
+```
+
+Donc :
+
+```text
+1 indice  = 1
+2 indices = 3
+3 indices = 6
+4 indices = 10
+5 indices = 15
+```
+
+Le coût est **cumulatif**.
+
+Il doit être impossible d'obtenir un sixième indice.
+
+---
+
+# 7. Génération des indices
+
+Les cinq indices doivent former une progression logique.
+
+Conceptuellement :
+
+```text
+Indice 1 → relativement proche
+Indice 2 → plus proche
+Indice 3 → très proche
+Indice 4 → extrêmement proche
+Indice 5 → presque voisin du mot secret
+Mot secret → 100
+```
+
+Exemple purement illustratif :
+
+```text
+Indice 1 → score 62
+Indice 2 → score 74
+Indice 3 → score 84
+Indice 4 → score 92
+Indice 5 → score 97
+Solution → 100
+```
+
+Ces valeurs sont uniquement des exemples.
+
+Le système doit être adapté au moteur sémantique existant.
+
+Le point important est :
+
+> **Chaque indice doit réellement apporter une information nouvelle et rapprocher le joueur.**
+
+Éviter un système naïf du type "prendre le 10e mot le plus proche".
+
+La sélection doit tenir compte :
+
+* du score ;
+* de la progression entre les indices ;
+* de la pertinence sémantique ;
+* de la redondance ;
+* des mots déjà trouvés par le joueur ;
+* de la possibilité que plusieurs mots soient quasiment équivalents.
+
+Les indices doivent idéalement être insérés **dans la même liste que les propositions du joueur**.
+
+Par exemple :
+
+```text
+chien             94
+💡 animal          91
+loup              87
+chat              82
+💡 mammifère       79
+```
+
+L'indice doit avoir une petite indication visuelle permettant de comprendre qu'il vient du système.
+
+Il ne faut pas créer une deuxième grosse zone "Indices" séparée.
+
+---
+
+# 8. Nombre d'essais
+
+Les indices ne doivent **pas compter comme des essais**.
+
+Exemple :
+
+```text
+18 essais · 3 indices
+```
+
+Cela permet de distinguer clairement :
+
+* la performance du joueur ;
+* l'aide utilisée.
+
+---
+
+# 9. Mode quotidien
+
+Le jeu possède un **mot du jour**.
+
+Chaque jour, tous les joueurs jouent sur le même mot.
+
+Le mot est géré côté serveur.
+
+Le client ne doit jamais recevoir directement le mot secret avant sa résolution.
+
+Le backend doit être la source de vérité pour :
+
+* le mot quotidien ;
+* les scores ;
+* les essais ;
+* les indices ;
+* la monnaie ;
+* la réussite ;
+* les statistiques.
+
+Le mot du jour est associé à une date et à un numéro.
+
+Exemple :
+
+```text
+Mot du jour #428
+```
+
+Le changement de mot doit être déterminé côté serveur avec une référence temporelle stable, idéalement UTC, et non selon l'horloge du téléphone.
+
+---
+
+# 10. Fin d'une partie quotidienne
+
+Quand le joueur trouve `100`, afficher un écran de victoire **très simple**.
+
+Exemple :
+
+```text
+✓ BIEN JOUÉ !
+
+VOLCAN
+
+18 essais
+1 indice
+
+🔥 Mieux que 73 % des joueurs
+
+Médiane : 22 essais
+```
+
+Le chiffre le plus important est le percentile :
+
+> **"Vous êtes meilleur que X % des joueurs."**
+
+C'est le principal élément compétitif.
+
+On peut également afficher :
+
+* nombre d'essais ;
+* nombre d'indices ;
+* meilleur score atteint avant la solution ;
+* série quotidienne ;
+* éventuellement moyenne/médiane personnelle.
+
+Mais ne pas surcharger l'écran.
+
+---
+
+# 11. Médiane plutôt que moyenne
+
+Pour les statistiques globales, privilégier la **médiane** au lieu de la moyenne lorsque c'est pertinent.
+
+Pourquoi ?
+
+Un joueur qui fait 150 ou 300 essais avant d'abandonner peut fortement déformer la moyenne.
+
+Exemple :
+
+```text
+Vous : 18 essais
+Médiane : 22 essais
+```
+
+Cela permet au joueur de comprendre immédiatement sa performance.
+
+Le percentile reste néanmoins la métrique émotionnelle principale.
+
+---
+
+# 12. Partage
+
+Le résultat quotidien peut être partagé sans révéler le mot.
+
+Exemple :
+
+```text
+Mot du jour #428
+
+18 essais
+1 indice
+
+🔥 Mieux que 73 % des joueurs
+```
+
+Le partage doit donner envie aux autres de venir jouer sans spoiler la solution.
+
+---
+
+# 13. Série quotidienne
+
+Ajouter une série quotidienne légère.
+
+Exemple :
+
+```text
+🔥 Série de 8 jours
+```
+
+Le but est d'inciter à revenir chaque jour.
+
+La série peut également contribuer à récompenser le retour quotidien en donnant de la monnaie d'indice.
+
+Mais éviter absolument une mécanique façon Duolingo trop punitive ou envahissante.
+
+La série doit rester secondaire.
+
+---
+
+# 14. Mode campagne
+
+En plus du quotidien, le jeu possède un mode campagne.
+
+La campagne ne doit **pas utiliser des thèmes explicites comme nom de niveau**.
+
+Exemple à éviter :
+
+```text
+Niveau 1 — Animaux
+Niveau 2 — Nourriture
+Niveau 3 — Nature
+```
+
+Cela donnerait trop d'informations au joueur et réduirait la difficulté du puzzle.
+
+À la place, utiliser une progression abstraite basée sur les **planètes**.
+
+Exemple :
+
+```text
+🌍 TERRE
+    Niveau 1
+    Niveau 2
+    ...
+    Niveau 10
+
+🔴 MARS
+    Niveau 1
+    Niveau 2
+    ...
+    Niveau 10
+
+🟠 JUPITER
+    ...
+
+🪐 SATURNE
+    ...
+
+🔵 URANUS
+    ...
+
+🔵 NEPTUNE
+```
+
+Les planètes servent uniquement de marqueurs de progression.
+
+Elles ne doivent pas donner d'indication sur le contenu sémantique des mots.
+
+---
+
+# 15. Structure de campagne
+
+Une structure possible :
+
+```text
+6 planètes
+10 niveaux par planète
+30 mots par niveau
+```
+
+Soit :
+
+```text
+6 × 10 × 30 = 1800 mots
+```
+
+Pour terminer un niveau, le joueur doit trouver par exemple :
+
+```text
+25 / 30
+```
+
+Les 5 autres sont optionnels.
+
+Ainsi :
+
+* trouver 25 mots → niveau validé ;
+* trouver 30 mots → niveau parfait / bonus ;
+* les 5 mots restants peuvent être retrouvés plus tard.
+
+Cela permet de ne pas bloquer le joueur sur un niveau extrêmement difficile tout en donnant une raison de revenir compléter les niveaux.
+
+---
+
+# 16. Difficulté de la campagne
+
+La difficulté ne doit pas principalement venir de thèmes différents.
+
+Elle doit venir de la **difficulté sémantique**.
+
+Au début :
+
+* associations relativement directes ;
+* mots assez faciles à relier ;
+* scores qui donnent des directions claires.
+
+Plus tard :
+
+* associations abstraites ;
+* plusieurs directions sémantiques possibles ;
+* mots polysémiques ;
+* voisinages sémantiques moins évidents ;
+* solutions difficiles à conceptualiser.
+
+Le joueur doit progressivement devenir meilleur au jeu lui-même.
+
+---
+
+# 17. Noms des niveaux
+
+Les niveaux peuvent avoir des noms abstraits si cela apporte de la personnalité.
+
+Exemple :
+
+```text
+🌍 TERRE
+
+01 — Écho
+02 — Vertige
+03 — Silence
+04 — Fracture
+05 — Trace
+```
+
+Les noms ne doivent jamais révéler la catégorie des mots.
+
+Ils servent uniquement à donner une identité à la progression.
+
+---
+
+# 18. Ancienne idée : duel temps réel
+
+Une version précédente du jeu avait été envisagée comme un duel temps réel, dans l'esprit d'un "Clash Royale sémantique".
+
+Cette direction n'est **pas retenue comme cœur du produit**.
+
+Le jeu sémantique se prête moins naturellement à un duel temps réel :
+
+* le joueur a besoin de réfléchir ;
+* la comparaison de vitesse peut être frustrante ;
+* le gameplay devient plus chaotique ;
+* le plaisir principal vient de la construction progressive d'une carte sémantique ;
+* le système de score fonctionne mieux comme puzzle personnel que comme combat.
+
+Le produit doit donc privilégier :
+
+> **réflexion → découverte → progression → satisfaction**
+
+plutôt que :
+
+> **réflexion → vitesse → compétition temps réel**
+
+La compétition peut exister via les statistiques quotidiennes, les percentiles et éventuellement des classements, sans transformer le jeu en jeu de combat.
+
+---
+
+# 19. Architecture technique
+
+Une architecture serveur classique suffit.
+
+Le client demande une partie quotidienne :
+
+```http
+POST /api/game/daily/start
+```
+
+Le serveur retourne par exemple :
+
+```json
+{
+  "gameId": "...",
+  "dailyNumber": 428,
+  "date": "2026-09-04"
+}
+```
+
+**Ne jamais retourner le mot secret.**
+
+Le joueur propose un mot :
+
+```http
+POST /api/game/{gameId}/guess
+```
+
+avec :
+
+```json
+{
+  "word": "montagne"
+}
+```
+
+Le serveur :
+
+1. vérifie la partie ;
+2. vérifie la validité de la proposition ;
+3. exécute le moteur sémantique ;
+4. calcule le score ;
+5. enregistre la proposition ;
+6. retourne le résultat.
+
+Exemple :
+
+```json
+{
+  "word": "montagne",
+  "score": 82
+}
+```
+
+Lorsque le joueur demande un indice :
+
+```http
+POST /api/game/{gameId}/hint
+```
+
+Le serveur :
+
+1. vérifie le nombre d'indices déjà utilisés ;
+2. vérifie la monnaie disponible ;
+3. calcule le coût du prochain indice ;
+4. sélectionne l'indice ;
+5. débite la monnaie ;
+6. enregistre l'utilisation ;
+7. retourne le mot indice et son score.
+
+Le serveur doit être la source de vérité.
+
+---
+
+# 20. Anti-triche
+
+Le client ne doit jamais avoir accès à :
+
+* la solution avant victoire ;
+* la liste complète des mots secrets ;
+* la logique permettant de calculer directement la solution ;
+* les informations nécessaires pour contourner le coût des indices.
+
+Le client reçoit uniquement les informations nécessaires pour afficher le résultat.
+
+Toute modification importante doit être validée côté serveur :
+
+```text
+score
+essais
+indices
+monnaie
+victoire
+statistiques
+série
+```
+
+---
+
+# 21. Monétisation
+
+Le seul élément monétisable est la monnaie permettant d'obtenir des indices.
+
+La monnaie peut être obtenue par :
+
+```text
+✓ retour quotidien
+✓ publicité récompensée
+✓ achat
+```
+
+Mais la monétisation ne doit jamais devenir "pay-to-win" au sens où l'argent permettrait de révéler automatiquement la solution.
+
+Même avec :
+
+```text
+50 monnaies
+500 monnaies
+5000 monnaies
+```
+
+le joueur ne peut obtenir que les **5 indices prévus pour le mot**.
+
+Les indices rapprochent de la solution mais ne la donnent jamais.
+
+---
+
+# 22. Boucle de gameplay recherchée
+
+La boucle idéale est :
+
+```text
+Je lance le jeu
+        ↓
+Je vois le mot à trouver
+        ↓
+Je propose un premier mot
+        ↓
+Score faible
+        ↓
+Je cherche une autre direction
+        ↓
+Score moyen
+        ↓
+"Ah, je suis peut-être dans cette zone"
+        ↓
+Je teste plusieurs mots
+        ↓
+Un mot fait 91
+        ↓
+Excitation
+        ↓
+Je cherche autour de cette idée
+        ↓
+97
+        ↓
+98
+        ↓
+100
+        ↓
+Satisfaction
+        ↓
+Statistique / percentile
+        ↓
+"Demain je reviens"
+```
+
+C'est cette boucle qui doit être optimisée.
+
+---
+
+# 23. Principe produit fondamental
+
+Le jeu doit donner au joueur la sensation suivante :
+
+> **"Je suis en train de comprendre le mot."**
+
+et non :
+
+> **"Le jeu me donne la réponse."**
+
+Chaque mécanique doit être évaluée avec cette question.
+
+Si une fonctionnalité donne trop facilement la solution → la supprimer ou la rendre plus indirecte.
+
+Si une fonctionnalité aide le joueur à mieux comprendre son espace sémantique → elle est intéressante.
+
+---
+
+# 24. Priorité absolue
+
+Ne pas chercher à multiplier les fonctionnalités.
+
+Le produit doit reposer sur quelques éléments extrêmement bien exécutés :
+
+### 1. Le moteur sémantique
+
+Le score doit être fiable et satisfaisant.
+
+### 2. La liste des mots
+
+Elle doit devenir une véritable carte de réflexion.
+
+### 3. Le feedback visuel
+
+Simple, lisible, immédiatement compréhensible.
+
+### 4. Les indices
+
+5 niveaux, progressifs, payés avec une seule monnaie.
+
+### 5. Le quotidien
+
+Un mot par jour + percentile + série.
+
+### 6. La campagne
+
+Progression par planètes, sans révéler de thème.
+
+---
+
+## Résumé du produit
+
+**Un puzzle sémantique minimaliste où le joueur cherche un mot secret en proposant librement des mots et en utilisant leur proximité sémantique pour construire progressivement une carte mentale de la solution.**
+
+Deux modes :
+
+```text
+☀️ QUOTIDIEN
+1 mot / jour
+compétition via percentile
+série quotidienne
+partage
+
+🚀 CAMPAGNE
+planètes → niveaux → mots
+progression permanente
+25/30 pour valider
+30/30 pour compléter
+difficulté sémantique croissante
+```
+
+Une seule monnaie :
+
+```text
+💡 indices
+```
+
+5 indices maximum par mot :
+
+```text
+1 → 1
+2 → +2
+3 → +3
+4 → +4
+5 → +5
+```
+
+Et surtout :
+
+> **Minimaliste dans l'interface, profond dans la réflexion, satisfaisant dans la progression.**
+
+La monnaie sera l’indice, un icone d’ampoule simple

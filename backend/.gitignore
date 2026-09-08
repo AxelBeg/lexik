@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+models/
+cache/
+data/calibration.json
+
+lexik_dev.db

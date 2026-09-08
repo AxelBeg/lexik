@@ -1,0 +1,53 @@
+# --- Secrets -----------------------------------------------------------------
+# backend/.env porte le GOOGLE_CLIENT_SECRET. Il ne doit jamais partir : un
+# secret pousse sur GitHub est compromis meme apres suppression du commit.
+.env
+.env.*
+!.env.example
+
+# --- Dependances installables ------------------------------------------------
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# --- Modele semantique -------------------------------------------------------
+# cc.fr.300.bin pese ~7 Go. Il se retelecharge (voir README).
+backend/models/
+*.bin
+*.vec
+*.ftz
+
+# --- Donnees sources non redistribuees ---------------------------------------
+# Lexique383.tsv fait 25 Mo et appartient a ses auteurs. Ce sont les listes
+# QU'IL PRODUIT qui sont versionnees (playable_words.json, hint_words.json,
+# campaign_words.json) : le jeu en a besoin au demarrage, le TSV non.
+# Le retelecharger seulement pour regenerer ces listes.
+backend/data/Lexique383.tsv
+
+# --- Artefacts de developpement ----------------------------------------------
+backend/cache/
+backend/data/calibration.json
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Expo / React Native -----------------------------------------------------
+.expo/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# --- Outils et OS ------------------------------------------------------------
+.idea/
+.vscode/
+*.log
+Thumbs.db
+desktop.ini
+.DS_Store

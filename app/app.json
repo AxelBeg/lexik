@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Lexik",
+    "slug": "lexik",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "lexik",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f7f6f4"
+    },
+    "android": {
+      "package": "com.beginz.lexik",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f7f6f4"
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}
