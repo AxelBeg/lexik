@@ -29,12 +29,15 @@ from pathlib import Path
 
 import numpy as np
 from diskcache import Cache
+from dotenv import load_dotenv
 
 from utils.const import (
     CALIBRATION_PATH, FASTTEXT_MODEL_PATH, HINT_WORDS_PATH, PLAYABLE_WORDS_PATH,
-    SIMILARITY_CACHE_DIR,
+    REDUCED_MODEL_PATH, SIMILARITY_CACHE_DIR,
 )
 from utils.helpers import display_word, normalize_key
+
+load_dotenv()
 
 cache = Cache(SIMILARITY_CACHE_DIR, size_limit=int(1e9))
 
@@ -56,6 +59,41 @@ _hint_vocab: list[str] | None = None
 _hint_matrix: np.ndarray | None = None    # (N, 300) normalise L2, indices seulement
 _calibration: dict | None = None
 _lock = threading.Lock()
+
+
+class ReducedModel:
+    """cc.fr.300 restreint au vocabulaire du jeu. Meme API que fasttext."""
+
+    def __init__(self, by_word: dict[str, np.ndarray], by_key: dict[str, np.ndarray]):
+        self._by_word = by_word
+        self._by_key = by_key
+
+    def __len__(self) -> int:
+        return len(self._by_word)
+
+    @classmethod
+    def load(cls, path: Path) -> "ReducedModel":
+        data = np.load(path)
+        by_word: dict[str, np.ndarray] = {}
+        by_key: dict[str, np.ndarray] = {}
+        for word, vec in zip(data["words"], data["vectors"]):
+            w = str(word)
+            v = np.asarray(vec, dtype=np.float32)
+            by_word[w] = v
+            key = normalize_key(w)
+            if key and key not in by_key:
+                by_key[key] = v
+        return cls(by_word, by_key)
+
+    def get_word_vector(self, word: str) -> np.ndarray:
+        v = self._by_word.get(word)
+        if v is None:
+            v = self._by_word.get(display_word(word))
+        if v is None:
+            v = self._by_key.get(normalize_key(word))
+        if v is None:
+            return np.zeros(300, dtype=np.float32)
+        return v
 
 
 def _load_word_map(path) -> dict[str, str]:
@@ -87,10 +125,21 @@ def preload(with_matrix: bool = False) -> None:
 
     with _lock:
         if _model is None and not FAKE_ENGINE:
-            import fasttext
-            print(f"Chargement du modele fastText ({FASTTEXT_MODEL_PATH})...")
-            _model = fasttext.load_model(str(FASTTEXT_MODEL_PATH))
-            print("Modele charge.")
+            if REDUCED_MODEL_PATH.exists():
+                print(f"Chargement du modele reduit ({REDUCED_MODEL_PATH})...")
+                _model = ReducedModel.load(REDUCED_MODEL_PATH)
+                print(f"Modele charge : {len(_model)} vecteurs cc.fr.300.")
+            elif FASTTEXT_MODEL_PATH.exists():
+                import fasttext
+                print(f"Chargement du modele fastText ({FASTTEXT_MODEL_PATH})...")
+                _model = fasttext.load_model(str(FASTTEXT_MODEL_PATH))
+                print("Modele charge.")
+            else:
+                raise RuntimeError(
+                    "Aucun modele semantique. Lancer "
+                    "`python -m scripts.build_reduced_model` "
+                    f"ou placer {FASTTEXT_MODEL_PATH.name} dans models/."
+                )
         elif FAKE_ENGINE:
             print("[!] LEXIK_FAKE_ENGINE=1 : scores factices, aucun sens semantique.")
 
@@ -222,7 +271,10 @@ def score_guess(secret: str, guess: str) -> dict:
     if same_word(canonical, secret):
         return {"word": canonical, "score": 100.0, "error": None}
 
-    key = f"{normalize_key(secret)}|{normalize_key(canonical)}"
+    # Prefixe d'engine : l'ancien cache sans prefixe contenait des scores
+    # factices (homme/femme = 0.21) qui restaient servis apres le vrai modele.
+    engine = "fake" if FAKE_ENGINE else "ft"
+    key = f"{engine}|{normalize_key(secret)}|{normalize_key(canonical)}"
     cached = cache.get(key)
     if cached is not None:
         return {"word": canonical, "score": cached, "error": None}

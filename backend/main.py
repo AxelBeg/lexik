@@ -19,7 +19,8 @@ from services import similarity
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Demarrage de Lexik...")
+    engine = "FAKE" if similarity.FAKE_ENGINE else "cc.fr.300"
+    print(f"Demarrage de Lexik (pid={os.getpid()}, moteur={engine})...")
     similarity.preload()
     print("Pret.")
     yield
@@ -42,4 +43,4 @@ app.include_router(router, prefix="/api/v1")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

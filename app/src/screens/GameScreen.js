@@ -90,13 +90,6 @@ export default function GameScreen({ params, navigate, palette }) {
     load();
   }, [load]);
 
-  useEffect(() => {
-    if(game?.attempts){
-        console.log(game.attempts);
-        console.log(game.attempts.length);
-    }
-  }, [game]);
-
   const submit = async () => {
     const w = word.trim();
     if (!w || busy || game?.completed) return;
@@ -110,11 +103,11 @@ export default function GameScreen({ params, navigate, palette }) {
       } else {
         setWord('');
         setLastGuess({ word: res.word, score: res.score });
-        console.log("___game",res.game);
         setGame(res.game);
         writeCache(cacheKey, { game: res.game, meta });
 
         if (res.score >= 90) {
+          pulse.stopAnimation();
           Animated.sequence([
             Animated.timing(pulse, { toValue: 1.06, duration: 130, useNativeDriver: true }),
             Animated.spring(pulse, { toValue: 1, friction: 4, useNativeDriver: true }),
@@ -166,6 +159,7 @@ export default function GameScreen({ params, navigate, palette }) {
   useEffect(() => {
     const target = displayed.score;
     if (target == null) {
+      fill.stopAnimation();
       fill.setValue(0);
       setShownScore(null);
       return undefined;
@@ -181,16 +175,21 @@ export default function GameScreen({ params, navigate, palette }) {
       }
     });
 
+    fill.stopAnimation();
     fill.setValue(0);
-    Animated.timing(fill, {
+    const anim = Animated.timing(fill, {
       toValue: target,
       duration: 520,
       easing: Easing.out(Easing.cubic),
       // width et backgroundColor ne sont pas pilotables par le driver natif
       useNativeDriver: false,
-    }).start();
+    });
+    anim.start();
 
-    return () => fill.removeListener(sub);
+    return () => {
+      anim.stop();
+      fill.removeListener(sub);
+    };
   }, [displayed.score, fill]);
 
   if (!game) {
@@ -253,17 +252,16 @@ export default function GameScreen({ params, navigate, palette }) {
               {displayed.word}
             </Text>
           </View>
-          <Animated.Text
-            style={[
-              styles.bigScore,
-              {
-                color: hasScore ? animatedColor : palette.textGhost,
-                transform: [{ scale: pulse }],
-              },
-            ]}
-          >
-            {hasScore && shownScore != null ? shownScore : '--'}
-          </Animated.Text>
+          <Animated.View style={{ transform: [{ scale: pulse }] }}>
+            <Animated.Text
+              style={[
+                styles.bigScore,
+                { color: hasScore ? animatedColor : palette.textGhost },
+              ]}
+            >
+              {hasScore && shownScore != null ? shownScore : '--'}
+            </Animated.Text>
+          </Animated.View>
         </View>
 
         <View style={[styles.bigTrack, { backgroundColor: palette.trackDeep }]}>

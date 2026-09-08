@@ -3,7 +3,8 @@ __pycache__/
 .venv/
 venv/
 .env
-models/
+models/*
+!models/lexik.fr.300.npz
 cache/
 data/calibration.json
 

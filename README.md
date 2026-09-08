@@ -49,30 +49,33 @@ cp .env.example .env                                 # puis remplir
 
 ### Données non versionnées
 
-Deux fichiers sont exclus du dépôt et doivent être récupérés à part.
+Un fichier est exclu du dépôt et doit être récupéré à part si on veut
+régénérer les listes de vocabulaire.
 
 | Fichier | Pourquoi | Où le trouver |
 |---|---|---|
-| `backend/models/cc.fr.300.bin` | ~7 Go | [fastText, vecteurs français](https://fasttext.cc/docs/en/crawl-vectors.html) |
 | `backend/data/Lexique383.tsv` | 25 Mo, données tierces | [lexique.org](http://www.lexique.org/) |
 
 Les **listes produites** par Lexique383 sont versionnées, elles
 (`playable_words.json`, `hint_words.json`, `campaign_words.json`) : le jeu en a
 besoin au démarrage, le TSV seulement pour les régénérer.
 
-Et rien ne tourne sans le modèle — sauf en mode factice (voir plus bas), qui
-n'en a pas besoin.
+Le binaire officiel `cc.fr.300.bin` (~7 Go) n'est **pas** versionné. Le runtime
+utilise `backend/models/lexik.fr.300.npz` (~24 Mo) : les vecteurs cc.fr.300
+réduits au vocabulaire jouable. Il est dans le dépôt. Pour le reconstruire :
+
+```bash
+python -m scripts.build_reduced_model
+```
 
 ### Le modèle
 
-`cc.fr.300.bin` (fastText français) est attendu dans `backend/models/`.
-Il n'est pas versionné : ~7 Go.
+`lexik.fr.300.npz` suffit au jeu : on ne score que des mots de
+`playable_words`, et les indices sont précalculés. Le `.bin` officiel n'est
+utile que pour régénérer ce fichier.
 
-> **À faire avant de publier.** Ce modèle est bien trop gros pour un serveur
-> raisonnable. Comme les indices sont précalculés, le runtime n'a besoin que du
-> vocabulaire jouable (~12 000 mots) : réduire le modèle à ce vocabulaire fait
-> tomber l'empreinte de plusieurs Go à quelques dizaines de Mo, et l'hébergement
-> avec. Voir `docs/prompt-persistance.md`.
+> **Avant de publier.** Vérifier que le `.npz` couvre bien les 180 mots de
+> campagne. Voir `docs/prompt-persistance.md`.
 
 ### Tester sans le modèle ni Postgres
 
@@ -194,15 +197,14 @@ ne veut dire deux choses.
 ## Ce qui reste à faire
 
 1. **Relire les 180 mots** de `data/campaign_words.json`.
-2. **Réduire le modèle fastText** au vocabulaire jouable.
-3. **Play Games** — voir [docs/play-games-setup.md](docs/play-games-setup.md).
+2. **Play Games** — voir [docs/play-games-setup.md](docs/play-games-setup.md).
    À faire tôt : mal configuré, ça échoue silencieusement et ça ne ressemble pas
    à un bug de code.
-4. **Publicité récompensée** — `react-native-google-mobile-ads` a été retiré des
+3. **Publicité récompensée** — `react-native-google-mobile-ads` a été retiré des
    dépendances : module natif inutilisable dans Expo Go, et pas encore branché.
    Le crédit devra venir du callback serveur du réseau publicitaire, jamais du
    client qui affirme avoir vu la vidéo.
-5. **Achats** — Google Play Billing côté app, validation du reçu côté serveur.
-6. **Page web de suppression de compte** — accessible sans installer l'app.
-7. **Migrations** — `Base.metadata.create_all` suffit au démarrage ; passer à
+4. **Achats** — Google Play Billing côté app, validation du reçu côté serveur.
+5. **Page web de suppression de compte** — accessible sans installer l'app.
+6. **Migrations** — `Base.metadata.create_all` suffit au démarrage ; passer à
    Alembic avant la première mise en production.

@@ -8,6 +8,10 @@ DATA_DIR = BASE_DIR / "data"
 MODELS_DIR = Path(os.getenv("LEXIK_MODELS_DIR", BASE_DIR / "models"))
 
 FASTTEXT_MODEL_PATH = MODELS_DIR / os.getenv("LEXIK_MODEL_FILE", "cc.fr.300.bin")
+# Vecteurs cc.fr.300 reduits au vocabulaire jouable (~50 Mo). Suffisant au
+# runtime : on ne score que des mots de playable_words, et les indices sont
+# precalcules. Voir scripts/build_reduced_model.py.
+REDUCED_MODEL_PATH = MODELS_DIR / os.getenv("LEXIK_REDUCED_MODEL_FILE", "lexik.fr.300.npz")
 # Deux listes, deux roles opposes — ne pas les confondre.
 #
 # PLAYABLE : ce que le joueur a le DROIT de taper. Doit etre large. Refuser un
