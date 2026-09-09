@@ -6,7 +6,12 @@ de campagne : un indice grossier est aussi genant qu'une solution grossiere.
 Ne s'applique JAMAIS a ce que le joueur a le droit de taper. Cette liste dit ce
 que le jeu PROPOSE, pas ce qu'il accepte : refuser un mot parce qu'il est
 vulgaire enverrait « Mot inconnu » sur un mot que le joueur sait exister.
+
+Ce module porte aussi `same_family`, qui repond a l'autre question du contenu
+genere : deux mots sont-ils le meme mot ?
 """
+
+from utils.helpers import normalize_key
 
 # Mots ecartes comme solution. Trois familles :
 #   - fonctionnels : trop vagues pour avoir un voisinage semantique utile ;
@@ -80,3 +85,60 @@ FOREIGN = {
 def is_excluded(key: str) -> bool:
     """`key` doit etre une cle normalisee (utils.helpers.normalize_key)."""
     return key in BLOCKLIST or key in FOREIGN
+
+
+# --- Mots de la meme famille ----------------------------------------------
+#
+# « miracle » avait « miraculé » et « miraculeux » pour indices : le joueur
+# recevait trois fois le meme mot, et le second lui donnait pratiquement la
+# solution. Le test qui devait l'empecher etait une inclusion de chaine
+# (`secret in word or word in secret`), qui ne voit rien des lors que la
+# derivation change une lettre au milieu — « mirac|le » contre « mirac|uleux ».
+#
+# On compare donc les prefixes. C'est une heuristique orthographique, pas une
+# analyse morphologique : elle attrape les derivations regulieres, qui sont
+# l'ecrasante majorite des cas genants (verbe -> nom d'agent, nom -> adjectif,
+# masculin -> feminin), et rate les familles supletives — « boire »/« boisson »,
+# « roi »/« royaume », « oeil »/« yeux » — qu'aucun prefixe ne rapproche.
+#
+# Les seuils sont deliberement laches, parce que les deux erreurs ne coutent
+# pas la meme chose. Un faux positif fait passer un candidat au suivant, dont
+# le score est a une decimale du precedent : invisible. Un faux negatif, lui,
+# arrive jusqu'au joueur. On accepte donc de perdre « sourcil »/« sourire »
+# pour garder « vallée »/« vallon ».
+#
+# Les composes a trait d'union sont le point faible connu : « nord-est » et
+# « nord-ouest » partagent leur premier element et passent pour parents. Un
+# seul cas sur les 22 000 paires du contenu actuel — pas de quoi une regle.
+MIN_FAMILY_PREFIX = 4
+# Le prefixe doit aussi couvrir la moitie du plus court des deux mots, sinon
+# deux mots longs et sans rapport se rejoignent sur leurs quatre premieres
+# lettres (« constellation »/« consternation »).
+MIN_FAMILY_RATIO = 0.5
+
+
+def _shared_prefix(a: str, b: str) -> int:
+    n = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        n += 1
+    return n
+
+
+def same_family(a: str, b: str) -> bool:
+    """Les deux mots sont-ils des variantes l'un de l'autre ?
+
+    Accepte des formes affichees : la normalisation est faite ici, pour qu'un
+    accent ne fasse pas passer « miraculé » pour un mot etranger a « miracle ».
+    """
+    a, b = normalize_key(a), normalize_key(b)
+    if not a or not b:
+        return False
+    # Les cas que l'inclusion de chaine attrapait deja : « camera » dans
+    # « cameraman ». On les garde, ils ne dependent d'aucun seuil.
+    if a in b or b in a:
+        return True
+
+    shared = _shared_prefix(a, b)
+    return shared >= MIN_FAMILY_PREFIX and shared >= MIN_FAMILY_RATIO * min(len(a), len(b))

@@ -12,7 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getMe } from '../api/game';
 import { CacheKeys, readCache, writeCache } from '../utils/cache';
+import { syncDailyReminder } from '../utils/notifications';
 import { Fonts } from '../../theme/fonts';
+import { planetColors } from '../../theme/colors';
 import { BulbIcon, ChevronRight, FlameIcon, MenuIcon, PlanetIcon } from '../components/Icons';
 
 /** Le degrade de la marque : la rampe semantique en sept points. */
@@ -84,6 +86,11 @@ export default function MainMenu({ navigate, palette }) {
       const data = await getMe();
       setMe(data);
       writeCache(CacheKeys.me, data);
+      // Le menu est le seul endroit traverse a chaque session, et il vient de
+      // recevoir l'etat frais : c'est donc ici qu'on repose les rappels du
+      // soir. En particulier, celui de ce soir disparait des que `data.daily`
+      // dit que le mot est trouve.
+      syncDailyReminder(data).catch(() => {});
     } catch (e) {
       console.log('Menu : chargement impossible', e?.message);
     } finally {
@@ -183,7 +190,15 @@ export default function MainMenu({ navigate, palette }) {
         <ModeCard
           palette={palette}
           label="CAMPAGNE"
-          meta={<PlanetIcon size={14} colors={palette.planetActive} />}
+          // L'astre en cours, dans sa livree : la carte du menu porte la
+          // meme couleur que la ligne qu'on retrouvera sur l'ecran campagne.
+          meta={(
+            <PlanetIcon
+              size={14}
+              planet={campaign.planetId ?? 'terre'}
+              colors={planetColors(campaign.planetId ?? 'terre', palette)}
+            />
+          )}
           title={`Continuer sur ${campaign.planetName ?? 'Terre'}`}
           subtitle={
             <Text style={[styles.cardSub, { color: palette.textFaint }]}>

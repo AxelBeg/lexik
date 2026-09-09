@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Animated, Easing, FlatList, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Platform,
   Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,9 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buyHint, sendGuess, startDaily, startLevel } from '../api/game';
 import { errorMessage } from '../api/client';
 import { CacheKeys, readCache, writeCache } from '../utils/cache';
+import { askPermissionOnce } from '../utils/notifications';
 import { Fonts } from '../../theme/fonts';
 import { scoreColor } from '../../theme/colors';
-import AttemptRow from '../components/AttemptRow';
+import ListAttempts from '../components/ListAttempts';
 import { ArrowUp, BulbIcon, ChevronLeft } from '../components/Icons';
 import VictoryOverlay from '../components/VictoryOverlay';
 
@@ -34,11 +35,29 @@ function latestAttempt(game) {
   const last = rows.reduce((best, row) =>
     (row.createdAt ?? '') > (best.createdAt ?? '') ? row : best,
   );
-  return { word: last.word, score: last.score, isHint: last.isHint };
+  return { word: last.word, score: last.score, isHint: last.isHint, rank: last.rank };
 }
 
-// Espacement entre deux lignes de la carte semantique.
-const ROW_GAP = 4;
+/**
+ * « 847e sur 1000 » — la place du mot parmi les plus proches du secret.
+ *
+ * C'est la mesure qui manquait au milieu de partie. Le score, lui, s'ecrase :
+ * un joueur qui cherche encore voit defiler 11, 8, 14, 9, et ces chiffres ne
+ * lui apprennent rien. Le rang, lui, bouge — 900e puis 300e, c'est une
+ * direction, et donc une raison de continuer.
+ *
+ * Nul hors du vivier, donc absent la plupart du temps : c'est son apparition
+ * qui porte l'information. Rien ne dit « tu es loin », le rang se contente de
+ * ne pas etre la.
+ */
+function rankLabel(rank, total) {
+  if (rank == null || !total) return null;
+  return `${rank}${rank === 1 ? 'er' : 'e'} sur ${total}`;
+}
+
+// Duree du remplissage de la barre. La celebration de victoire s'y accroche :
+// elle ne peut pas partir avant que le chiffre ait fini de monter.
+const SCORE_FILL_MS = 520;
 
 export default function GameScreen({ params, navigate, palette }) {
   const { mode, planetId, levelNumber } = params;
@@ -51,10 +70,17 @@ export default function GameScreen({ params, navigate, palette }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [victory, setVictory] = useState(null);
+  const [animationClose, setAnimationClose] = useState(false);
+  // La victoire recue du serveur, gardee de cote pendant que l'ecran de jeu
+  // celebre. Voir l'effet de celebration plus bas.
+  const [pendingVictory, setPendingVictory] = useState(null);
+  const [found, setFound] = useState(false);
 
   // Pulsation discrete sur les tres bons scores. Volontairement sobre :
   // l'interface ne doit pas ressembler a un mobile game agressif (section 3).
   const pulse = useRef(new Animated.Value(1)).current;
+  // Debordement de la barre au moment du 100. Une seule fois par partie.
+  const bloom = useRef(new Animated.Value(0)).current;
 
   const cacheKey = mode === 'daily' ? 'game:daily' : `game:${planetId}:${levelNumber}`;
 
@@ -102,18 +128,22 @@ export default function GameScreen({ params, navigate, palette }) {
         setError(res.error);
       } else {
         setWord('');
-        setLastGuess({ word: res.word, score: res.score });
+        setLastGuess({ word: res.word, score: res.score, rank: res.rank });
         setGame(res.game);
         writeCache(cacheKey, { game: res.game, meta });
 
-        if (res.score >= 90) {
+        // Une victoire a sa propre celebration, plus ample : on ne veut pas
+        // que la petite pulsation des bons scores parte en meme temps.
+        if (res.victory) {
+          setAnimationClose(true);
+          setPendingVictory(res.victory);
+        } else if (res.score >= 90) {
           pulse.stopAnimation();
           Animated.sequence([
             Animated.timing(pulse, { toValue: 1.06, duration: 130, useNativeDriver: true }),
             Animated.spring(pulse, { toValue: 1, friction: 4, useNativeDriver: true }),
           ]).start();
         }
-        if (res.victory) setVictory(res.victory);
       }
     } catch (e) {
       setError(errorMessage(e, 'Proposition impossible'));
@@ -129,7 +159,11 @@ export default function GameScreen({ params, navigate, palette }) {
     try {
       const res = await buyHint(game.gameId);
       setGame(res.game);
-      setLastGuess({ word: res.hint.word, score: res.hint.score, isHint: true });
+      // `neighborRank` et non `rank` : le second est le palier d'indice (1..5).
+      setLastGuess({
+        word: res.hint.word, score: res.hint.score, isHint: true,
+        rank: res.hint.neighborRank,
+      });
       writeCache(cacheKey, { game: res.game, meta });
     } catch (e) {
       setError(errorMessage(e, 'Indice indisponible'));
@@ -142,8 +176,21 @@ export default function GameScreen({ params, navigate, palette }) {
     () => ({
       word: lastGuess?.word ?? '—',
       score: lastGuess?.score ?? null,
+      rank: rankLabel(lastGuess?.rank, game?.neighborsTotal),
     }),
-    [lastGuess],
+    [lastGuess, game?.neighborsTotal],
+  );
+
+  // Les lignes de la carte semantique. Le serveur les envoie deja triees par
+  // proximite et deja portees par leur rang : rien a calculer ici sinon la
+  // mise en valeur du dernier mot joue.
+  const rows = useMemo(
+    () =>
+      (game?.attempts ?? []).map((a) => ({
+        ...a,
+        highlighted: a.word === lastGuess?.word,
+      })),
+    [game?.attempts, lastGuess?.word],
   );
 
   // Remplissage progressif de la barre, et chiffre qui monte avec elle.
@@ -179,7 +226,7 @@ export default function GameScreen({ params, navigate, palette }) {
     fill.setValue(0);
     const anim = Animated.timing(fill, {
       toValue: target,
-      duration: 520,
+      duration: SCORE_FILL_MS,
       easing: Easing.out(Easing.cubic),
       // width et backgroundColor ne sont pas pilotables par le driver natif
       useNativeDriver: false,
@@ -191,6 +238,51 @@ export default function GameScreen({ params, navigate, palette }) {
       fill.removeListener(sub);
     };
   }, [displayed.score, fill]);
+
+  // La victoire n'ouvre pas l'ecran de fin tout de suite.
+  //
+  // La barre met SCORE_FILL_MS a rejoindre 100 et le chiffre monte avec elle :
+  // c'est la seule fois de la partie ou ce compteur va au bout, et c'est la
+  // recompense. Monter l'overlay dans le meme lot que la proposition le
+  // recouvrait a l'instant meme ou il partait — le joueur voyait un « 12 » se
+  // faire avaler par « NIVEAU TERMINE » et n'assistait jamais a sa propre
+  // victoire.
+  //
+  // On garde donc le resultat de cote, on laisse le chiffre arriver, on marque
+  // le coup une fois, puis on passe la main. Trois choses au meme instant et
+  // une seule fois : l'intitule bascule sur TROUVE, le chiffre encaisse, la
+  // barre pleine deborde et s'efface. Pas de confettis, pas de boucle.
+  useEffect(() => {
+    if (!pendingVictory) return undefined;
+
+    let celebration = null;
+    const timer = setTimeout(() => {
+      setFound(true);
+      celebration = Animated.parallel([
+        Animated.sequence([
+          Animated.timing(pulse, {
+            toValue: 1.12, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true,
+          }),
+          Animated.spring(pulse, {
+            toValue: 1, friction: 5, tension: 120, useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(bloom, {
+          toValue: 1, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+        }),
+      ]);
+      // L'overlay prend la suite quand le debordement s'est eteint, pas apres
+      // un delai fixe : si la celebration est interrompue, il ne s'ouvre pas.
+      celebration.start(({ finished }) => {
+        if (finished) setVictory(pendingVictory);
+      });
+    }, SCORE_FILL_MS);
+
+    return () => {
+      clearTimeout(timer);
+      celebration?.stop();
+    };
+  }, [pendingVictory, pulse, bloom]);
 
   if (!game) {
     return (
@@ -219,8 +311,25 @@ export default function GameScreen({ params, navigate, palette }) {
     inputRange: [0, 100],
     outputRange: ['0%', '100%'],
   });
+  // Le debordement enfle et s'eteint dans le meme geste : il monte vite a la
+  // moitie de son opacite, puis se dissipe pendant qu'il finit de s'ouvrir.
+  const bloomOpacity = bloom.interpolate({
+    inputRange: [0, 0.22, 1],
+    outputRange: [0, 0.45, 0],
+  });
+  const bloomScale = bloom.interpolate({ inputRange: [0, 1], outputRange: [1, 5] });
   const hasScore = displayed.score != null;
   const hintsLeft = game.nextHintCost != null;
+
+  // La seule explication de regle de tout le jeu, et elle n'a qu'une occasion
+  // d'etre lue : l'ecran vide de la premiere partie. On y annonce le rang, sans
+  // quoi le joueur le decouvrirait sans savoir de quoi il parle — et surtout
+  // sans savoir que son absence veut dire quelque chose.
+  const emptyLabel = game.neighborsTotal
+    ? `Proposez un premier mot. Le score dit a quel point vous en etes proche, `
+      + `et un rang apparait des que vous entrez dans les ${game.neighborsTotal} mots `
+      + `les plus proches du secret.`
+    : 'Proposez un premier mot. Le score dit a quel point vous en etes proche.';
 
   return (
     <KeyboardAvoidingView
@@ -247,10 +356,19 @@ export default function GameScreen({ params, navigate, palette }) {
         {/* Derniere proposition : le feedback principal, immediatement lisible */}
         <View style={styles.lastRow}>
           <View style={{ flex: 1, gap: 8 }}>
-            <Text style={[styles.overline, { color: palette.textGhost }]}>DERNIERE PROPOSITION</Text>
+            <Text style={[styles.overline, { color: found ? palette.rampHot : palette.textGhost }]}>
+              {found ? 'TROUVÉ' : 'DERNIERE PROPOSITION'}
+            </Text>
             <Text numberOfLines={1} style={[styles.lastWord, { color: palette.text }]}>
               {displayed.word}
             </Text>
+            {/* Volontairement neutre, jamais sur la rampe : une seule chose a
+                l'ecran a le droit de porter la couleur de proximite, et c'est
+                le score. Le rang n'a pas besoin d'etre crie — il n'apparait
+                deja que quand il y a quelque chose a dire. */}
+            {displayed.rank && !found && (
+              <Text style={[styles.rank, { color: palette.textFaint }]}>{displayed.rank}</Text>
+            )}
           </View>
           <Animated.View style={{ transform: [{ scale: pulse }] }}>
             <Animated.Text
@@ -264,14 +382,30 @@ export default function GameScreen({ params, navigate, palette }) {
           </Animated.View>
         </View>
 
-        <View style={[styles.bigTrack, { backgroundColor: palette.trackDeep }]}>
+        <View style={styles.trackWrap}>
+          <View style={[styles.bigTrack, { backgroundColor: palette.trackDeep }]}>
+            <Animated.View
+              style={{
+                width: barWidth,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: animatedColor,
+              }}
+            />
+          </View>
+          {/* Pose PAR-DESSUS la piste et HORS d'elle : `bigTrack` est en
+              overflow hidden, une echelle verticale y serait rognee a 4 px et
+              ne se verrait pas. */}
           <Animated.View
-            style={{
-              width: barWidth,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: animatedColor,
-            }}
+            pointerEvents="none"
+            style={[
+              styles.bloom,
+              {
+                backgroundColor: palette.rampHot,
+                opacity: bloomOpacity,
+                transform: [{ scaleY: bloomScale }],
+              },
+            ]}
           />
         </View>
 
@@ -356,50 +490,7 @@ export default function GameScreen({ params, navigate, palette }) {
             demarrage. C'est l'outil de reflexion du joueur, pas un journal
             technique qu'on pourrait tronquer (prompt_base.txt, section 4). */}
         <View style={{ flex: 1, marginTop: 20 }}>
-          <FlatList
-            data={game.attempts}
-            keyExtractor={(item) => item.word}
-            renderItem={({ item }) => (
-              <AttemptRow
-                word={item.word}
-                score={item.score}
-                isHint={item.isHint}
-                highlighted={item.word === lastGuess?.word}
-                palette={palette}
-              />
-            )}
-            ItemSeparatorComponent={() => <View style={{ height: ROW_GAP }} />}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            // Le degrade de fondu de la maquette a ete retire : pose au-dessus
-            // de la liste, il masquait purement et simplement les dernieres
-            // lignes des que la zone devenait courte — donc des que le joueur
-            // ajoutait une proposition. Decoratif contre du contenu perdu :
-            // le contenu gagne.
-            contentContainerStyle={{ paddingBottom: 12 }}
-            // PAS de getItemLayout ici, et c'est delibere.
-            //
-            // Avec un ItemSeparatorComponent, FlatList compte le separateur
-            // DANS la cellule : une cellule mesure 38 + 4 = 42 px, pas 38.
-            // Annoncer `length: 38` faisait diverger ses offsets calcules des
-            // positions reelles, et elle laissait des cellules vides au milieu
-            // de la liste apres chaque reordonnancement — c'est-a-dire a chaque
-            // proposition, puisque la liste se retrie par score.
-            //
-            // Laisser FlatList mesurer coute une passe de layout et supprime le
-            // probleme. L'optimisation n'en valait pas le prix.
-
-            // Vrai par defaut sur Android, et cause connue de lignes vides :
-            // les vues sorties du champ sont detachees puis mal reattachees.
-            removeClippedSubviews={false}
-            initialNumToRender={24}
-            windowSize={21}
-            ListEmptyComponent={
-              <Text style={[styles.empty, { color: palette.textGhost }]}>
-                Proposez un premier mot. Le score dit a quel point vous en etes proche.
-              </Text>
-            }
-          />
+          <ListAttempts rows={rows} palette={palette} emptyLabel={emptyLabel} />
         </View>
       </View>
 
@@ -408,7 +499,20 @@ export default function GameScreen({ params, navigate, palette }) {
           victory={victory}
           mode={mode}
           palette={palette}
-          onClose={() => navigate('back')}
+          // Le fondu prend la suite de la celebration. A la reouverture d'une
+          // partie deja gagnee il n'y a rien eu a celebrer : l'ecran est la
+          // d'emblee, sans rejouer une victoire vieille de trois jours.
+          animate={animationClose}
+          onClose={() => {
+            // Le seul moment ou demander les notifications. Pas au premier
+            // lancement : a cet instant le joueur ne sait pas encore ce qu'est
+            // Lexik, et un refus systeme ne se represente jamais. Ici il vient
+            // de gagner, il a une raison de revenir demain, et c'est
+            // exactement ce que la permission lui propose. Une seule fois dans
+            // la vie de l'app, et jamais pendant la celebration.
+            if (mode === 'daily' && animationClose) askPermissionOnce().catch(() => {});
+            navigate('back', {}, animationClose ? { 'level-ended-animation': { params } } : {});
+          }}
         />
       )}
     </KeyboardAvoidingView>
@@ -441,9 +545,12 @@ const styles = StyleSheet.create({
   lastRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 16, marginTop: 26 },
   overline: { fontFamily: Fonts.medium, fontSize: 10, letterSpacing: 2 },
   lastWord: { fontFamily: Fonts.semibold, fontSize: 30 },
+  rank: { fontFamily: Fonts.mono, fontSize: 12, marginTop: -2 },
   bigScore: { fontFamily: Fonts.monoMedium, fontSize: 58, lineHeight: 58 },
 
-  bigTrack: { height: 4, borderRadius: 2, marginTop: 18, overflow: 'hidden' },
+  trackWrap: { marginTop: 18 },
+  bigTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  bloom: { position: 'absolute', left: 0, right: 0, top: 0, height: 4, borderRadius: 2 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   stats: { fontFamily: Fonts.regular, fontSize: 12 },
 
@@ -466,5 +573,4 @@ const styles = StyleSheet.create({
   mono11: { fontFamily: Fonts.mono, fontSize: 11 },
   mono12: { fontFamily: Fonts.mono, fontSize: 12 },
   error: { fontFamily: Fonts.regular, fontSize: 13, marginTop: 10 },
-  empty: { fontFamily: Fonts.regular, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 40 },
 });

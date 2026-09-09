@@ -183,6 +183,20 @@ def is_playable(word: str) -> bool:
     return resolve(word) is not None
 
 
+def has_vector(word: str) -> bool:
+    """Le modele connait-il ce mot ?
+
+    Un mot absent recoit un vecteur nul : son cosinus vaut 0 avec tout, ses
+    voisins sont un classement de bruit et ses indices n'apprennent rien. Le
+    puzzle est alors injouable sans que rien ne plante — d'ou ce test, appele
+    avant de semer une campagne (scripts/rebuild_campaign.py).
+    """
+    if FAKE_ENGINE:
+        return True
+    v = _require_model().get_word_vector(word)
+    return float(np.linalg.norm(v)) > 1e-9
+
+
 def same_word(a: str, b: str) -> bool:
     """Egalite tolerante aux accents et a la casse."""
     return normalize_key(a) == normalize_key(b)

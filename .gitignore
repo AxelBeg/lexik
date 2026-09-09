@@ -29,6 +29,8 @@ backend/models/*
 backend/data/Lexique383.tsv
 
 # --- Artefacts de developpement ----------------------------------------------
+# Exports de scripts.show_neighbors : gros, regenerables, jamais lus par le jeu.
+backend/exports/
 backend/cache/
 backend/data/calibration.json
 *.db

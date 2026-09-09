@@ -19,7 +19,7 @@ from datetime import timedelta
 
 from database.database import Base, SessionLocal, engine
 from database.models import CampaignLevel, DailyWord, SecretWord
-from services.daily import today_utc
+from services.daily import today_local
 from utils.const import LEVELS_PER_PLANET, PLANETS
 from utils.helpers import display_word
 
@@ -76,7 +76,7 @@ def schedule_daily(db, days: int, words: list[str]) -> None:
 
     last = db.query(DailyWord).order_by(DailyWord.number.desc()).first()
     number = (last.number + 1) if last else 1
-    date = today_utc()
+    date = today_local()
     if last and last.date >= date:
         date = last.date + timedelta(days=1)
 

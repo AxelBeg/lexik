@@ -31,7 +31,7 @@ const RADIUS = 9;
 // deja montees au lieu de les reconstruire, et c'est precisement le chemin ou
 // des lignes reapparaissent vides. Le cout d'un rendu complet est negligeable
 // devant quelques centaines de lignes de texte.
-export default function AttemptRow({ word, score, isHint, highlighted, palette }) {
+export default function AttemptRow({ word, score, isHint, highlighted, dimmed, rank, palette }) {
   const color = scoreColor(score, palette);
 
   // Valeurs de repli visibles plutot qu'une ligne vide : si une proposition
@@ -55,12 +55,20 @@ export default function AttemptRow({ word, score, isHint, highlighted, palette }
           styles.bar,
           {
             width: `${Math.max(score || 0, 2)}%`,
-            backgroundColor: scoreTint(score, palette, 0.13),
+            backgroundColor: scoreTint(score, palette, dimmed ? 0.06 : 0.13),
           },
         ]}
       />
 
       <View style={styles.left}>
+        {/* Le rang du mot dans le voisinage du secret, jamais sa position dans
+            la liste : numeroter les lignes donnerait un classement qui change
+            a chaque coup et ne veut rien dire. C'est pourquoi il peut manquer
+            — un mot hors du vivier n'a pas de rang, et la colonne reste vide
+            plutot que d'inventer un chiffre. */}
+        {rank != null && (
+          <Text style={[styles.rank, { color: palette.textGhost }]}>{rank}</Text>
+        )}
         <View style={styles.marker}>
           {isHint ? <BulbIcon size={13} color={palette.currency} width={1.6} /> : null}
         </View>
@@ -69,7 +77,7 @@ export default function AttemptRow({ word, score, isHint, highlighted, palette }
           style={[
             styles.word,
             {
-              color: isHint ? palette.textMuted : palette.text,
+              color: dimmed ? palette.textFaint : isHint ? palette.textMuted : palette.text,
               fontFamily: highlighted ? Fonts.semibold : Fonts.regular,
             },
           ]}
@@ -78,7 +86,10 @@ export default function AttemptRow({ word, score, isHint, highlighted, palette }
         </Text>
       </View>
 
-      <Text style={[styles.score, { color }]}>{value}</Text>
+      {/* Attenue, le score garde sa teinte de proximite : c'est l'information
+          que le joueur vient lire. On baisse l'opacite, on ne change pas la
+          couleur, sinon toute l'echelle de la liste devient illisible. */}
+      <Text style={[styles.score, { color }, dimmed && styles.scoreDimmed]}>{value}</Text>
     </View>
   );
 }
@@ -100,7 +111,11 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   left: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, zIndex: 1 },
+  // Largeur fixe : sans elle, les mots ne s'alignent plus a partir du rang 10.
+  // Taillee pour quatre chiffres — le vivier va jusqu'au millieme voisin.
+  rank: { fontFamily: Fonts.mono, fontSize: 12, width: 34, flexShrink: 0, textAlign: 'right' },
   marker: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
   word: { fontSize: 16, flexShrink: 1 },
   score: { fontFamily: Fonts.monoMedium, fontSize: 16, flexShrink: 0, zIndex: 1 },
+  scoreDimmed: { opacity: 0.55 },
 });

@@ -5,6 +5,13 @@
 // PROXIMITE, nulle part ailleurs. La progression de campagne est en gris
 // neutre, la monnaie et les indices en ambre. Aucune couleur ne veut dire deux
 // choses.
+//
+// Les livrees de planetes (table `planets`) sont la seule famille de teintes
+// qui sort de ce cadre, et elles n'y contreviennent pas : elles ne veulent rien
+// dire du tout. Elles nomment un lieu — Mars, Jupiter — comme le ferait une
+// etiquette. C'est aussi pour ca qu'elles ne teintent jamais une barre de
+// progression ni un score : la ou une couleur SIGNIFIE quelque chose, les
+// regles ci-dessus continuent de s'appliquer seules.
 
 const dark = {
   bg: '#0a0c11',
@@ -36,8 +43,24 @@ const dark = {
 
   currency: '#d29a4a',   // ambre : monnaie et indices, jamais un score
   progress: '#8b94a8',   // gris neutre : progression de campagne
-  planetActive: ['#245a66', '#3f8a99'],
   planetLocked: ['#2a2f3a', '#3a4150'],
+
+  // Livree de chaque astre. Ce n'est pas un jeton semantique de plus : ces
+  // teintes ne disent rien du score ni de la progression, elles IDENTIFIENT la
+  // planete — Mars est rouille, Jupiter ocre, Neptune bleu profond. C'est pour
+  // cela qu'elles vivent dans leur propre table et n'empruntent jamais a la
+  // rampe : une cellule ocre reste une cellule de Jupiter, jamais un score.
+  //   body   le disque, d'un seul tenant
+  //   shade  les taches sombres de la surface
+  //   detail le relief clair : calotte, bandes, anneaux
+  planets: {
+    terre:   { body: '#2f6f9e', shade: '#173f5f', detail: '#4e9a70' },
+    mars:    { body: '#b1512c', shade: '#6f2d15', detail: '#e8d9c9' },
+    jupiter: { body: '#c1935f', shade: '#7d5931', detail: '#eacfa8', spot: '#b0503a' },
+    saturne: { body: '#cfae6c', shade: '#8a7040', detail: '#ecdcb2' },
+    uranus:  { body: '#6bbec6', shade: '#357f88', detail: '#c6eaec' },
+    neptune: { body: '#3a5cc0', shade: '#1f3378', detail: '#8ba4e8' },
+  },
 };
 
 // Version claire : memes structures, memes regles. La rampe est retendue
@@ -72,8 +95,18 @@ const light = {
 
   currency: '#b57a1e',
   progress: '#8b8d96',
-  planetActive: ['#245a66', '#3f8a99'],
   planetLocked: ['#d8d7d3', '#b9b8b3'],
+
+  // Memes astres, retendus comme la rampe : sur fond clair, les teintes
+  // calibrees pour le noir se delavent.
+  planets: {
+    terre:   { body: '#2b6690', shade: '#123653', detail: '#3f8760' },
+    mars:    { body: '#a4471f', shade: '#68260f', detail: '#d9c4ab' },
+    jupiter: { body: '#b0824c', shade: '#6f4d28', detail: '#dfbd8e', spot: '#9f4127' },
+    saturne: { body: '#bf9a4f', shade: '#7b6234', detail: '#dfc98d' },
+    uranus:  { body: '#4da8b1', shade: '#2a6d76', detail: '#a6dade' },
+    neptune: { body: '#314fa8', shade: '#1a2b66', detail: '#7189d4' },
+  },
 };
 
 export const themes = { dark, light };
@@ -91,11 +124,30 @@ export function scoreColor(score, palette) {
   return ramp[0];
 }
 
-/** Fond translucide d'une ligne de proposition : la barre de proximite. */
-export function scoreTint(score, palette, opacity = 0.12) {
-  const hex = scoreColor(score, palette);
+/** Un hexadecimal du systeme, rendu translucide. */
+export function withAlpha(hex, opacity) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+/** Fond translucide d'une ligne de proposition : la barre de proximite. */
+export function scoreTint(score, palette, opacity = 0.12) {
+  return withAlpha(scoreColor(score, palette), opacity);
+}
+
+/** Livree de l'astre, ou son etat verrouille.
+ *
+ * Une planete verrouillee reste grise : la couleur est une recompense, on la
+ * decouvre en arrivant sur l'astre. Le relief, lui, est conserve — les anneaux
+ * de Saturne se reconnaissent avant meme qu'elle soit ouverte.
+ */
+export function planetColors(id, palette, locked = false) {
+  if (locked) {
+    const [body, shade] = palette.planetLocked;
+    return { body, shade, detail: shade, spot: shade };
+  }
+  const astre = palette.planets[id] ?? palette.planets.terre;
+  return { spot: astre.shade, ...astre };
 }

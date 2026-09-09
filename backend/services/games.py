@@ -7,33 +7,91 @@ que ces fonctions renvoient (prompt_base.txt section 20).
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from database.models import Attempt, DailyResult, Game, Hint, User
+from database.models import Attempt, DailyResult, Game, Hint, Neighbor, User
 from services import similarity
-from utils.const import DAILY_REWARD, HINT_COST, MAX_HINTS, STREAK_BONUS_AMOUNT, STREAK_BONUS_EVERY
+from utils.const import (
+    DAILY_REWARD, HINT_COST, MAX_HINTS, NEIGHBORS_REVEALED, STREAK_BONUS_AMOUNT,
+    STREAK_BONUS_EVERY,
+)
 from utils.helpers import normalize_key
+
+
+# --------------------------------------------------------------------------
+# Rang parmi les voisins
+# --------------------------------------------------------------------------
+
+# Le classement des voisins d'un mot secret est fige des le precalcul : on le
+# garde en memoire plutot que de relire mille lignes a chaque proposition.
+#
+# Consequence a connaitre : un `rebuild_campaign` exige un redemarrage du
+# serveur pour que les nouveaux rangs sortent. C'est deja vrai du modele et des
+# listes de vocabulaire, charges une fois au demarrage.
+#
+# Borne, parce que l'ensemble des mots secrets ne l'est pas : les 180 mots de
+# campagne sont fixes, mais il s'ajoute un mot du jour par jour, et une partie
+# ancienne reste consultable. Sans plafond, un serveur qui tourne un an finit
+# par tenir en memoire un millier de voisins pour chaque mot jamais joue.
+_RANKS_CACHE_MAX = 256
+_ranks_cache: OrderedDict[int, dict[str, int]] = OrderedDict()
+
+
+def neighbor_ranks(db: Session, secret_word_id: int) -> dict[str, int]:
+    """Cle depouillee -> rang, pour les N mots les plus proches du secret.
+
+    Indexe sur la cle et non sur la forme affichee : les voisins sortent du
+    modele, les propositions de la saisie du joueur, et « ecoles » doit
+    retrouver « écoles » (meme raison que dans `serialize_neighbors`).
+    """
+    cached = _ranks_cache.get(secret_word_id)
+    if cached is not None:
+        _ranks_cache.move_to_end(secret_word_id)
+        return cached
+
+    rows = (
+        db.query(Neighbor.word, Neighbor.rank)
+        .filter(Neighbor.secret_word_id == secret_word_id)
+        .all()
+    )
+    ranks = {normalize_key(word): rank for word, rank in rows}
+    # Une base sans `precompute_neighbors` renverrait un dictionnaire vide : ne
+    # pas le mettre en cache, sinon le precalcul lance ensuite resterait
+    # invisible jusqu'au redemarrage suivant.
+    if ranks:
+        _ranks_cache[secret_word_id] = ranks
+        while len(_ranks_cache) > _RANKS_CACHE_MAX:
+            _ranks_cache.popitem(last=False)
+    return ranks
 
 
 # --------------------------------------------------------------------------
 # Lecture
 # --------------------------------------------------------------------------
 
-def serialize_attempts(game: Game) -> list[dict]:
+def serialize_attempts(game: Game, ranks: dict[str, int]) -> list[dict]:
     """La carte semantique du joueur, triee par proximite decroissante.
 
     Le tri par score et non par ordre chronologique est une regle de gameplay,
     pas un detail d'affichage (section 4) : c'est ce qui transforme
     l'historique en outil de reflexion.
+
+    `rank` est nul pour un mot hors du vivier : la plupart des propositions
+    d'un joueur qui cherche encore sont dans ce cas, et c'est voulu. Le rang
+    n'apparait que lorsqu'on entre dans le voisinage, et cette APPARITION est
+    l'information — le moment ou le joueur passe de « je tatonne » a « je suis
+    dans la bonne region ».
     """
     rows = [
         {
             "word": a.word,
             "score": float(a.score),
             "isHint": a.is_hint,
+            "rank": ranks.get(normalize_key(a.word)),
             "createdAt": a.created_at.isoformat() if a.created_at else None,
         }
         for a in game.attempts
@@ -42,8 +100,9 @@ def serialize_attempts(game: Game) -> list[dict]:
     return rows
 
 
-def serialize_game(game: Game, user: User) -> dict:
+def serialize_game(db: Session, game: Game, user: User) -> dict:
     """Etat d'une partie. Le mot secret n'est inclus qu'apres victoire."""
+    ranks = neighbor_ranks(db, game.secret_word_id)
     return {
         "gameId": game.id,
         "mode": game.mode,
@@ -53,7 +112,12 @@ def serialize_game(game: Game, user: User) -> dict:
         "bestScore": float(game.best_score) if game.best_score is not None else None,
         "nextHintCost": next_hint_cost(game),
         "currency": user.hint_currency,
-        "attempts": serialize_attempts(game),
+        "attempts": serialize_attempts(game, ranks),
+        # Taille reelle du vivier, pas la constante : un mot peut en avoir moins
+        # si le modele lui connait peu de voisins, et « 312e sur 1000 » serait
+        # alors un mensonge. Nul si le precalcul n'a pas tourne — le client
+        # masque simplement le rang.
+        "neighborsTotal": len(ranks) or None,
         # jamais avant la resolution
         "secretWord": game.secret_word.word if game.completed else None,
     }
@@ -89,12 +153,13 @@ def submit_guess(db: Session, game: Game, user: User, word: str) -> dict:
     if result["error"]:
         # mot hors vocabulaire : ce n'est pas un essai, rien n'est persiste
         return {"word": result["word"], "score": None, "error": result["error"],
-                "alreadyTried": False, "game": serialize_game(game, user)}
+                "alreadyTried": False, "game": serialize_game(db, game, user)}
 
     # On travaille sur la forme canonique : « elephant » et « éléphant » sont
     # la meme proposition, et ne doivent compter qu'une fois.
     guess = result["word"]
     score = result["score"]
+    rank = neighbor_ranks(db, game.secret_word_id).get(normalize_key(guess))
 
     # Deja propose : on ne recompte pas d'essai, on renvoie le score connu.
     # Sinon un joueur gonflerait ses statistiques en rejouant le meme mot.
@@ -102,8 +167,8 @@ def submit_guess(db: Session, game: Game, user: User, word: str) -> dict:
     if existing is not None:
         return {
             "word": guess, "score": float(existing.score), "isHint": existing.is_hint,
-            "alreadyTried": True, "error": None,
-            "game": serialize_game(game, user),
+            "rank": rank, "alreadyTried": True, "error": None,
+            "game": serialize_game(db, game, user),
         }
 
     db.add(Attempt(game_id=game.id, word=guess, score=score, is_hint=False))
@@ -119,9 +184,9 @@ def submit_guess(db: Session, game: Game, user: User, word: str) -> dict:
     db.refresh(game)
 
     payload = {
-        "word": guess, "score": score, "isHint": False,
+        "word": guess, "score": score, "isHint": False, "rank": rank,
         "alreadyTried": False, "error": None,
-        "game": serialize_game(game, user),
+        "game": serialize_game(db, game, user),
     }
     if won:
         payload["victory"] = build_victory(db, game, user)
@@ -177,9 +242,19 @@ def buy_hint(db: Session, game: Game, user: User) -> dict:
     db.refresh(game)
 
     return {
-        "hint": {"word": hint.word, "score": float(hint.score), "rank": rank},
+        # `rank` est le palier d'indice (1..5), `neighborRank` la place du mot
+        # dans le vivier du secret. Deux echelles sans rapport : le troisieme
+        # indice peut tres bien etre le 40e voisin.
+        "hint": {
+            "word": hint.word,
+            "score": float(hint.score),
+            "rank": rank,
+            "neighborRank": neighbor_ranks(db, game.secret_word_id).get(
+                normalize_key(hint.word)
+            ),
+        },
         "cost": cost,
-        "game": serialize_game(game, user),
+        "game": serialize_game(db, game, user),
     }
 
 
@@ -233,6 +308,46 @@ def _record_daily_result(db: Session, game: Game, user: User) -> None:
         user.hint_currency += STREAK_BONUS_AMOUNT
 
 
+def serialize_neighbors(db: Session, game: Game) -> list[dict]:
+    """Le classement des mots les plus proches du secret, du plus proche au plus
+    lointain, marque de ce que le joueur avait trouve.
+
+    N'est appele que par `build_victory`, donc jamais avant que la partie soit
+    gagnee : envoye plus tot, ce tableau EST la solution.
+
+    `found` distingue les mots proposes des mots simplement montres, et `hint`
+    ceux qui ont ete achetes. Sans cette distinction, le joueur ne verrait pas
+    la difference entre ce qu'il a trouve et ce qu'on lui a donne.
+    """
+    # Les premiers seulement : le vivier stocke va jusqu'a mille pour pouvoir
+    # situer une proposition pendant la partie, mais un ecran de victoire de
+    # mille lignes ne se lit pas, et se transporte mal.
+    rows = (
+        db.query(Neighbor)
+        .filter(Neighbor.secret_word_id == game.secret_word_id)
+        .order_by(Neighbor.rank)
+        .limit(NEIGHBORS_REVEALED)
+        .all()
+    )
+    # Comparaison sur la cle depouillee : les voisins sortent du modele, les
+    # propositions de la saisie du joueur, et « ecoles » ne doit pas rater
+    # « ecoles ». Les indices achetes sont des propositions comme les autres
+    # dans `attempts`, avec is_hint a vrai.
+    played = {normalize_key(a.word): a for a in game.attempts}
+
+    out = []
+    for row in rows:
+        attempt = played.get(normalize_key(row.word))
+        out.append({
+            "rank": row.rank,
+            "word": row.word,
+            "score": float(row.score),
+            "found": attempt is not None and not attempt.is_hint,
+            "hint": attempt is not None and attempt.is_hint,
+        })
+    return out
+
+
 def build_victory(db: Session, game: Game, user: User) -> dict:
     """Ecran de victoire (section 10). Le percentile est la metrique principale."""
     payload = {
@@ -241,6 +356,7 @@ def build_victory(db: Session, game: Game, user: User) -> dict:
         "hints": game.hints_used,
         "streak": user.streak_current,
         "currency": user.hint_currency,
+        "neighbors": serialize_neighbors(db, game),
     }
 
     if game.mode == "daily":

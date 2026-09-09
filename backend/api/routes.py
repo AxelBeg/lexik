@@ -123,6 +123,9 @@ def me(user: User = Depends(auth_service.current_user), db: Session = Depends(ge
         "daily": {
             "number": daily.number,
             "date": daily.date.isoformat(),
+            # L'echeance de la journee de jeu, en absolu : le client cale son
+            # rappel du soir dessus plutot que sur minuit local.
+            "resetsAt": daily_service.next_reset().isoformat(),
             "started": daily_game is not None,
             "completed": bool(daily_game and daily_game.completed),
             "attemptsCount": daily_game.attempts_count if daily_game else 0,
@@ -147,7 +150,7 @@ def me(user: User = Depends(auth_service.current_user), db: Session = Depends(ge
 @router.post("/daily/start", tags=["quotidien"])
 def daily_start(user: User = Depends(auth_service.current_user), db: Session = Depends(get_db)):
     game = daily_service.start_or_resume(db, user)
-    payload = games_service.serialize_game(game, user)
+    payload = games_service.serialize_game(db, game, user)
     payload["dailyNumber"] = game.daily_word.number
     payload["date"] = game.daily_word.date.isoformat()
     if game.completed:
@@ -174,7 +177,7 @@ def campaign_start(
     db: Session = Depends(get_db),
 ):
     game = campaign_service.start_or_resume(db, user, planet_id, level_number)
-    payload = games_service.serialize_game(game, user)
+    payload = games_service.serialize_game(db, game, user)
     payload["planetId"] = planet_id
     payload["levelNumber"] = level_number
     if game.completed:
@@ -193,7 +196,7 @@ def get_game(
     db: Session = Depends(get_db),
 ):
     game = games_service.get_owned_game(db, game_id, user)
-    return games_service.serialize_game(game, user)
+    return games_service.serialize_game(db, game, user)
 
 
 @router.post("/game/{game_id}/guess", tags=["partie"])

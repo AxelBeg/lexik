@@ -101,6 +101,10 @@ class SecretWord(Base):
         "Hint", back_populates="secret_word",
         cascade="all, delete-orphan", order_by="Hint.rank",
     )
+    neighbors = relationship(
+        "Neighbor", back_populates="secret_word",
+        cascade="all, delete-orphan", order_by="Neighbor.rank",
+    )
 
 
 class Hint(Base):
@@ -119,6 +123,42 @@ class Hint(Base):
     __table_args__ = (
         UniqueConstraint("secret_word_id", "rank", name="uq_hint_rank"),
         CheckConstraint("rank BETWEEN 1 AND 5", name="ck_hint_rank"),
+    )
+
+
+class Neighbor(Base):
+    """Un des mots les plus proches du secret, avec sa place dans le classement.
+
+    Rien a voir avec `Hint` malgre la ressemblance des colonnes. Un indice est
+    CHOISI : cinq paliers etages, ecartes les uns des autres, payants. Un voisin
+    est SUBI : le classement brut du modele.
+
+    `rank` est lu a deux moments opposes. PENDANT la partie, il situe une
+    proposition sans rien reveler — « 847e sur 1000 » ne nomme aucun mot que le
+    joueur n'ait deja tape. APRES la victoire, les cent premiers sont montres
+    en entier, et la ce meme classement EST la solution. La frontiere est dans
+    `services/games.py` : `neighbor_ranks` ne sort jamais que des rangs,
+    `serialize_neighbors` sort des mots et n'est appele que par `build_victory`.
+
+    Precalcule hors ligne (scripts/precompute_neighbors.py) pour la meme raison
+    que les indices : le classement exige la matrice complete du vocabulaire,
+    qui pese plusieurs centaines de Mo et n'a rien a faire dans le serveur de
+    jeu.
+    """
+
+    __tablename__ = "neighbors"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    secret_word_id = Column(Integer, ForeignKey("secret_words.id", ondelete="CASCADE"), nullable=False)
+    rank = Column(Integer, nullable=False)          # 1 = le plus proche du secret
+    word = Column(String(64), nullable=False)
+    score = Column(Numeric(5, 2), nullable=False)   # score de jeu 0-100
+
+    secret_word = relationship("SecretWord", back_populates="neighbors")
+
+    __table_args__ = (
+        UniqueConstraint("secret_word_id", "rank", name="uq_neighbor_rank"),
+        CheckConstraint("rank >= 1", name="ck_neighbor_rank"),
     )
 
 

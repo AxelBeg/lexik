@@ -22,6 +22,7 @@ from database.database import SessionLocal
 from database.models import Hint, SecretWord
 from services import similarity
 from utils.const import MAX_HINTS
+from utils.wordfilter import same_family
 
 # Paliers de score vises, du plus eloigne au plus proche. On cherche le mot le
 # plus proche de chaque palier plutot que le top 5 : c'est ce qui garantit une
@@ -30,6 +31,10 @@ TARGET_SCORES = [62, 74, 84, 92, 97]
 
 # Deux indices trop semblables entre eux n'apportent qu'une information : on
 # rejette un candidat trop proche d'un indice deja retenu.
+#
+# Ce seuil ne suffit pas seul : « miraculé » et « miraculeux » ont beau etre le
+# meme mot, le modele les separe assez pour passer sous 88. La parente
+# orthographique est verifiee a part, par same_family.
 MAX_INTER_HINT_SCORE = 88
 
 # Profondeur du classement de voisins dans laquelle on choisit. Doit etre assez
@@ -39,6 +44,8 @@ CANDIDATE_POOL = 5000
 
 def _too_similar(candidate: str, chosen: list[str]) -> bool:
     for word in chosen:
+        if same_family(candidate, word):
+            return True
         if similarity.to_game_score(similarity.raw_cosine(candidate, word)) > MAX_INTER_HINT_SCORE:
             return True
     return False
@@ -52,8 +59,10 @@ def select_hints(secret: str) -> list[tuple[str, float]]:
     # descendre bien plus bas dans le classement pour couvrir toute l'echelle.
     candidates = [
         (word, score) for word, score in similarity.nearest(secret, k=CANDIDATE_POOL)
-        # un mot presque identique au secret le donnerait : on l'ecarte
-        if score < 99 and secret not in word and word not in secret
+        # Un mot presque identique au secret le donnerait : on l'ecarte. Y
+        # compris quand la ressemblance n'est pas une inclusion de chaine —
+        # « miraculeux » ne contient pas « miracle », mais l'annonce.
+        if score < 99 and not same_family(secret, word)
     ]
     if not candidates:
         return []
