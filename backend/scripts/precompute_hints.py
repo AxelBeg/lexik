@@ -58,7 +58,7 @@ def select_hints(secret: str) -> list[tuple[str, float]]:
     # inatteignables et les cinq indices se tassent au meme niveau. Il faut
     # descendre bien plus bas dans le classement pour couvrir toute l'echelle.
     candidates = [
-        (word, score) for word, score in similarity.nearest(secret, k=CANDIDATE_POOL)
+        (word, score) for word, score in similarity.nearest(secret, k=CANDIDATE_POOL, pool=similarity.POOL_HINTS)
         # Un mot presque identique au secret le donnerait : on l'ecarte. Y
         # compris quand la ressemblance n'est pas une inclusion de chaine —
         # « miraculeux » ne contient pas « miracle », mais l'annonce.
@@ -93,8 +93,8 @@ def main() -> None:
                         help="recalcule meme les mots qui ont deja des indices")
     args = parser.parse_args()
 
-    print("Chargement du modele et de la matrice du vocabulaire...")
-    similarity.preload(with_matrix=True)
+    print("Chargement du modele et de la matrice des candidats indices...")
+    similarity.preload(matrices=(similarity.POOL_HINTS,))
 
     db = SessionLocal()
     try:

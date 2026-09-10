@@ -11,7 +11,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { setAuthLostHandler } from './src/api/client';
+import { apiBaseUrl, loadDevHost } from './src/api/config';
 import { signIn } from './src/api/auth';
+import DevServerRow from './src/components/DevServerRow';
 import { routeFromUrl } from './src/utils/deeplink';
 import { onReminderTapped } from './src/utils/notifications';
 import { loadFonts } from './theme/fonts';
@@ -65,11 +67,20 @@ export default function App() {
   const connect = useCallback(async () => {
     setAuthError(null);
     try {
+      // AVANT la premiere requete : en dev, l'adresse du serveur est retenue
+      // dans le stockage local et non compilee dans l'app. Charger apres
+      // signIn ferait partir la connexion sur l'adresse par defaut, donc
+      // typiquement sur la machine du bureau precedent.
+      await loadDevHost();
       // Play Games d'abord, en silence. Aucun ecran de connexion :
       // la majorite des joueurs arrive directement sur le menu.
       setSession(await signIn());
     } catch (e) {
-      setAuthError("Connexion au serveur impossible. Verifiez votre reseau.");
+      setAuthError(
+        __DEV__
+          ? `Connexion impossible a ${apiBaseUrl()}.\nReglages > Serveur de dev pour changer d'adresse.`
+          : 'Connexion au serveur impossible. Verifiez votre reseau.',
+      );
     }
   }, []);
 
@@ -119,9 +130,16 @@ export default function App() {
   }
 
   if (authError) {
+    // Le reglage du serveur est repete ICI, et pas seulement dans l'ecran des
+    // reglages : quand on arrive au bureau avec la mauvaise IP, l'app n'a
+    // justement pas depasse cet ecran, et les reglages sont derriere le menu
+    // — donc derriere une connexion qui vient d'echouer.
     return (
       <View style={[styles.boot, { backgroundColor: palette.bg }]}>
         <Text style={[styles.error, { color: palette.textFaint }]}>{authError}</Text>
+        <View style={styles.bootActions}>
+          <DevServerRow palette={palette} onChanged={() => {}} />
+        </View>
       </View>
     );
   }
@@ -154,4 +172,5 @@ export default function App() {
 const styles = StyleSheet.create({
   boot: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   error: { fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  bootActions: { alignSelf: 'stretch', marginTop: 24 },
 });

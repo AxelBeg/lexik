@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteAccount, isFallbackAccount, linkPlayGames } from '../api/auth';
 import { Fonts } from '../../theme/fonts';
 import { ChevronLeft } from '../components/Icons';
+import DevServerRow from '../components/DevServerRow';
 
 function Row({ title, subtitle, onPress, palette, danger }) {
   return (
@@ -116,6 +117,8 @@ export default function SettingsScreen({ navigate, palette }) {
           onPress={onDelete}
           danger
         />
+        {/* Rien en production : le composant se retire lui-meme hors __DEV__. */}
+        <DevServerRow palette={palette} onChanged={() => navigate('menu')} />
       </View>
     </ScrollView>
   );

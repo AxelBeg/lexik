@@ -20,6 +20,7 @@ from utils.const import (
     STREAK_BONUS_EVERY,
 )
 from utils.helpers import normalize_key
+from utils.wordfilter import same_family
 
 
 # --------------------------------------------------------------------------
@@ -197,12 +198,77 @@ def submit_guess(db: Session, game: Game, user: User, word: str) -> dict:
 # Acheter un indice
 # --------------------------------------------------------------------------
 
+# Un indice de remplacement ne doit pas etre un synonyme d'un indice deja
+# revele, meme regle qu'au precalcul (scripts/precompute_hints.py).
+MAX_INTER_HINT_SCORE = 88
+
+
+def _substitute_hint(db: Session, game: Game, target: float) -> tuple[str, float] | None:
+    """Un indice de secours quand le mot precalcule est deja sur la carte.
+
+    Le joueur paie : il doit apprendre quelque chose. Rendre un mot qu'il a
+    trouve seul, c'est encaisser sans rien donner — et ca frappe d'autant plus
+    fort qu'on joue bien, puisque plus on approche, plus on risque d'avoir deja
+    propose l'indice.
+
+    On repioche donc dans les voisins precalcules, en leur imposant le filtre
+    des indices :
+
+    - `is_hint_word` : nom ou adjectif courant. Depuis que le classement des
+      voisins couvre tout le vocabulaire jouable, un voisin quelconque peut
+      etre un verbe ou un mot rare, qui ferait un mauvais indice ;
+    - hors famille du secret, sous 99 : ne pas donner le mot ;
+    - assez loin des indices deja reveles : deux synonymes payes deux fois ne
+      font qu'une information.
+
+    A score egal on prefere le voisin JUSTE AU-DESSUS de la cible : le joueur a
+    paye, il doit avancer, pas reculer. En dessous seulement s'il n'y a rien
+    au-dessus.
+    """
+    tried = {normalize_key(a.word) for a in game.attempts}
+    revealed = [a.word for a in game.attempts if a.is_hint]
+    secret = game.secret_word.word
+
+    rows = (
+        db.query(Neighbor.word, Neighbor.score)
+        .filter(Neighbor.secret_word_id == game.secret_word_id)
+        .all()
+    )
+
+    candidates = [
+        (word, float(score)) for word, score in rows
+        if normalize_key(word) not in tried
+        and float(score) < 99
+        and similarity.is_hint_word(word)
+        and not same_family(secret, word)
+    ]
+    if not candidates:
+        return None
+
+    # Au-dessus d'abord, du plus proche de la cible au plus lointain ; puis en
+    # dessous, meme ordre. Le premier qui n'est pas un doublon d'un indice deja
+    # donne l'emporte.
+    above = sorted((c for c in candidates if c[1] >= target), key=lambda c: c[1] - target)
+    below = sorted((c for c in candidates if c[1] < target), key=lambda c: target - c[1])
+
+    for word, score in above + below:
+        if any(same_family(word, r) for r in revealed):
+            continue
+        if any(similarity.to_game_score(similarity.raw_cosine(word, r)) > MAX_INTER_HINT_SCORE
+               for r in revealed):
+            continue
+        return word, score
+    return None
+
+
 def buy_hint(db: Session, game: Game, user: User) -> dict:
     """Debite la monnaie et revele l'indice suivant.
 
     Les indices sont precalcules (scripts/precompute_hints.py) : aucun calcul
-    semantique ici. Ils rejoignent la meme liste que les propositions mais ne
-    comptent pas comme des essais (section 8).
+    semantique ici, sauf quand le mot prevu est deja sur la carte du joueur et
+    qu'il faut lui en substituer un autre (`_substitute_hint`). Ils rejoignent
+    la meme liste que les propositions mais ne comptent pas comme des essais
+    (section 8).
     """
     if game.completed:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Partie deja terminee")
@@ -225,18 +291,39 @@ def buy_hint(db: Session, game: Game, user: User) -> dict:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
                             detail="Indices non calcules pour ce mot")
 
+    # Comparaison sur la cle depouillee et non sur la chaine : l'indice vient
+    # de hint_words.json, la proposition de playable_words.json, et les deux
+    # fichiers n'ont pas toujours la meme graphie du meme mot (« maïs » /
+    # « mais »). Une egalite stricte y verrait deux mots et poserait deux
+    # lignes pour un seul.
+    tried = {normalize_key(a.word) for a in game.attempts}
+
+    word, score, substituted = hint.word, float(hint.score), False
+    if normalize_key(hint.word) in tried:
+        # Le mot prevu est deja sur la carte : on en cherche un autre plutot
+        # que d'encaisser sans rien apprendre au joueur.
+        other = _substitute_hint(db, game, float(hint.score))
+        if other is None:
+            # Aucun candidat : ne rien debiter. Un indice paye qui n'apprend
+            # rien est pire qu'un indice indisponible.
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="Aucun indice a donner : tu as deja trouve tout ce qui pouvait aider",
+            )
+        word, score, substituted = other[0], other[1], True
+
     user.hint_currency -= cost
     game.hints_used = rank
 
-    # Si le joueur avait deja trouve ce mot tout seul, on le marque comme
-    # indice sans le dupliquer : la contrainte d'unicite l'interdirait.
-    existing = next((a for a in game.attempts if a.word == hint.word), None)
-    if existing is not None:
-        existing.is_hint = True
-    else:
-        db.add(Attempt(game_id=game.id, word=hint.word, score=hint.score, is_hint=True))
-        if game.best_score is None or float(hint.score) > float(game.best_score):
-            game.best_score = hint.score
+    db.add(Attempt(game_id=game.id, word=word, score=score, is_hint=True))
+    if game.best_score is None or score > float(game.best_score):
+        game.best_score = score
+
+    # La proposition que le joueur avait trouvee seul n'est PAS retouchee. La
+    # voir se changer en ampoule apres coup lui retirerait le merite de
+    # l'avoir trouvee, et lui donnerait l'impression d'avoir paye pour un mot
+    # qu'il avait deja. Un achat ajoute une ligne, et ne modifie rien de ce
+    # qui est deja sur la carte.
 
     db.commit()
     db.refresh(game)
@@ -246,11 +333,16 @@ def buy_hint(db: Session, game: Game, user: User) -> dict:
         # dans le vivier du secret. Deux echelles sans rapport : le troisieme
         # indice peut tres bien etre le 40e voisin.
         "hint": {
-            "word": hint.word,
-            "score": float(hint.score),
+            "word": word,
+            "score": score,
             "rank": rank,
+            # `substituted` dit a l'app que l'indice prevu etait deja trouve et
+            # qu'on en a donne un autre. Sans ca, un joueur qui a deja la
+            # moitie de la carte ne comprend pas pourquoi ses indices ne
+            # suivent pas les paliers annonces.
+            "substituted": substituted,
             "neighborRank": neighbor_ranks(db, game.secret_word_id).get(
-                normalize_key(hint.word)
+                normalize_key(word)
             ),
         },
         "cost": cost,

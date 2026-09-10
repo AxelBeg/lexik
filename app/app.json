@@ -25,6 +25,12 @@
       "expo-secure-store",
       "expo-font",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0e5f5e0d-7fe4-4280-a138-7f38ee657962"
+      }
+    },
+    "owner": "beginz"
   }
 }

@@ -194,6 +194,29 @@ POST   /api/v1/game/{id}/hint
 
 Le mot secret n'est jamais renvoyé avant la victoire.
 
+### L'indice déjà trouvé
+
+Un indice acheté doit apprendre quelque chose. Si le mot prévu est déjà sur la
+carte du joueur — cas fréquent, et d'autant plus fréquent qu'on joue bien —
+`buy_hint` lui en substitue un autre, repioché dans les voisins précalculés
+sous le filtre des indices : nom ou adjectif courant (`is_hint_word`), hors
+famille du secret, et assez loin des indices déjà révélés.
+
+Le remplaçant est le plus proche **au-dessus** du score visé, et le plus proche
+en dessous seulement s'il n'y a rien au-dessus : le joueur a payé, il doit
+avancer. La réponse porte `hint.substituted`, pour que l'app puisse expliquer
+pourquoi le palier annoncé n'est pas celui reçu.
+
+La proposition que le joueur avait trouvée seul n'est **pas** retouchée : elle
+reste une proposition, avec son icône. La voir se changer en ampoule après coup
+lui retirerait le mérite de l'avoir trouvée, et lui donnerait l'impression
+d'avoir payé pour un mot qu'il avait déjà. Un achat ajoute une ligne, et ne
+modifie rien de ce qui est déjà sur la carte.
+
+Si le vivier est épuisé — le joueur a déjà proposé tout ce qui pouvait aider —
+la requête échoue en 409 **sans rien débiter**. Un indice payé qui n'apprend
+rien est pire qu'un indice indisponible.
+
 ### Le rang
 
 `/guess` renvoie, en plus du score, le **rang** du mot parmi les 1000 plus
@@ -210,14 +233,35 @@ Deux règles tiennent la mécanique :
   rang se contente de ne pas être là, et son apparition marque le moment où le
   joueur entre dans la bonne région.
 
-Le vivier est pioché dans `hint_words.json` (~12 000 mots courants), pas dans
-`playable_words.json` : une proposition rare mais juste n'aura donc pas de rang,
-seulement un score élevé.
+Le classement, c'est **les 1000 mots jouables les plus proches du secret, et
+rien d'autre** : aucun filtre ne s'y applique. Deux règles écartées, chacune
+pour la même raison :
 
-> **Base existante.** Les voisins étaient stockés par 100. Relancer
-> `python -m scripts.precompute_neighbors` — sans `--force`, il reprend tout mot
-> qui en a moins de 1000 — puis **redémarrer le serveur** : les rangs sont mis
-> en cache au premier accès.
+- **pas le vivier des indices.** Le tirer de `hint_words.json` (noms et
+  adjectifs courants) privait de rang les 6 600 verbes et 1 600 adverbes
+  jouables, quel que soit leur score — `murmurer` n'était pas rare, il était
+  verbe ;
+- **pas de filtre de famille.** `frémir` sur le secret `frémissant` était
+  écarté comme variante et ressortait sans rang, alors qu'il est 4e. Le signal
+  était inversé : le joueur tapait le mot le plus brûlant de sa partie et
+  lisait « loin ».
+
+Le rang ne montre aucun mot, il situe celui que le joueur vient d'écrire : le
+classer ne révèle rien que son score n'ait déjà dit. Ce qui n'a pas de rang,
+c'est ce qui tombe au-delà des 1 000 plus proches, et c'est tout.
+
+Conséquence assumée sur la révélation d'après-partie : elle peut s'ouvrir sur
+une variante du secret — `miracle` sur `miraculeux`, `crime` sur `criminel`.
+C'est le prix d'un classement qui dit la vérité pendant la partie, quand elle
+se joue.
+
+> **Base existante.** Le vivier des voisins était `hint_words.json`, les
+> variantes du secret en étaient exclues, et ils étaient stockés par 100. Ces
+> changements imposent un
+> `python -m scripts.precompute_neighbors --force` — `--force` est nécessaire :
+> un mot qui a déjà ses 1000 voisins serait sauté alors que son classement est
+> à refaire — puis un **redémarrage du serveur**, les rangs étant mis en cache
+> au premier accès.
 
 ---
 
@@ -229,8 +273,19 @@ npm install
 npx expo start
 ```
 
-Renseigner l'IP de la machine dans `src/api/config.js` : un téléphone ne résout
-pas `localhost`.
+Un téléphone ne résout pas `localhost` : il lui faut l'IP de la machine sur le
+réseau local. Elle **se change depuis l'app**, sans recompiler — *Réglages >
+Serveur de dev*, et aussi depuis l'écran d'erreur de démarrage, puisque c'est
+là qu'on atterrit quand l'adresse est fausse. Le champ accepte `10.0.0.5`,
+`10.0.0.5:8001` ou une URL collée entière ; le port vaut 8000 par défaut. Le
+choix est retenu dans AsyncStorage, et changer de serveur reconnecte le compte
+— le jeton venait de l'autre machine.
+
+`DEFAULT_DEV_HOST` dans `src/api/config.js` n'est plus que la valeur du premier
+lancement, avant tout réglage.
+
+Tout ceci est sous `__DEV__` : en production `apiBaseUrl()` renvoie l'URL HTTPS
+sans jamais lire le stockage, et `DevServerRow` ne rend rien.
 
 Play Games exige un build natif (`npx expo run:android`) — dans Expo Go, l'app
 bascule automatiquement sur le mode repli, ce qui suffit pour développer.

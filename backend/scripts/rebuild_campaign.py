@@ -272,8 +272,8 @@ def main() -> None:
 
     # Le modele d'abord : la verification en a besoin, et il vaut mieux echouer
     # sur un mot douteux avant d'avoir touche a la base qu'apres.
-    print("Chargement du modele et de la matrice du vocabulaire...")
-    similarity.preload(with_matrix=True)
+    print("Chargement du modele et des matrices de vocabulaire...")
+    similarity.preload(matrices=(similarity.POOL_HINTS, similarity.POOL_PLAYABLE))
 
     print(f"\n1. Verification de {args.words}")
     problems = check_words(words)

@@ -66,9 +66,9 @@ export default function AttemptRow({ word, score, isHint, highlighted, dimmed, r
             a chaque coup et ne veut rien dire. C'est pourquoi il peut manquer
             — un mot hors du vivier n'a pas de rang, et la colonne reste vide
             plutot que d'inventer un chiffre. */}
-        {rank != null && (
-          <Text style={[styles.rank, { color: palette.textGhost }]}>{rank}</Text>
-        )}
+        {
+          <Text style={[styles.rank, { color: palette.textGhost }]}>{rank != null? rank: " "}</Text>
+        }
         <View style={styles.marker}>
           {isHint ? <BulbIcon size={13} color={palette.currency} width={1.6} /> : null}
         </View>
@@ -110,10 +110,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS,
     zIndex: 0,
   },
-  left: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, zIndex: 1 },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, zIndex: 1},
   // Largeur fixe : sans elle, les mots ne s'alignent plus a partir du rang 10.
   // Taillee pour quatre chiffres — le vivier va jusqu'au millieme voisin.
-  rank: { fontFamily: Fonts.mono, fontSize: 12, width: 34, flexShrink: 0, textAlign: 'right' },
+  rank: { fontFamily: Fonts.mono, fontSize: 16, width: 34, flexShrink: 0, textAlign: 'right' },
   marker: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
   word: { fontSize: 16, flexShrink: 1 },
   score: { fontFamily: Fonts.monoMedium, fontSize: 16, flexShrink: 0, zIndex: 1 },

@@ -8,6 +8,11 @@ Sert deux choses, et la plus importante est la premiere :
    tout. Le rang n'est jamais montre pour un mot hors du vivier, et cette
    absence est elle aussi une information.
 
+   D'ou le vivier PLAYABLE et non celui des indices : le rang doit pouvoir
+   recompenser tout ce que le joueur a le droit de taper. Classer dans le
+   vivier des indices — noms et adjectifs courants — privait de rang les
+   6 600 verbes et 1 600 adverbes jouables, quel que soit leur score.
+
 2. la revelation d'apres-partie. Une fois le mot trouve, le joueur voit les
    cent premiers et decouvre ce qu'il n'a pas pense a proposer.
 
@@ -18,8 +23,9 @@ remplit la premiere, l'ecran de victoire n'en lit que le debut.
     python -m scripts.precompute_neighbors --force    # tout recalculer
 
 Meme raison d'etre hors ligne que precompute_hints : le classement exige la
-matrice de tout le vocabulaire (`preload(with_matrix=True)`), qui pese plusieurs
-centaines de Mo. Le serveur de jeu ne fait qu'une lecture en base.
+matrice de tout le vocabulaire jouable
+(`preload(matrices=(POOL_PLAYABLE,))`), ~47 Mo de vecteurs plus le modele. Le
+serveur de jeu ne fait qu'une lecture en base.
 
 A relancer apres toute modification de la calibration : les scores stockes sont
 des scores de jeu, pas des cosinus.
@@ -33,32 +39,27 @@ from database.database import Base, SessionLocal, engine
 from database.models import Neighbor, SecretWord
 from services import similarity
 from utils.const import NEIGHBORS_STORED
-from utils.wordfilter import same_family
 
 
 def select_neighbors(secret: str, count: int) -> list[tuple[str, float]]:
     """Les `count` voisins les plus proches, du plus proche au plus lointain.
 
-    Contrairement aux indices, aucun etalement ni filtre de diversite : c'est
-    le classement brut du modele. Le seul rejet est le mot secret lui-meme et
-    ses variantes — les revoir dans la liste n'apprend rien et gache la
-    revelation. Les variantes sont bien plus nombreuses qu'une inclusion de
-    chaine ne le laisse croire, et elles se logent la ou ca se voit : sur le
-    contenu genere jusqu'ici, six sur dix tombaient dans le top 10 et la
-    plupart au rang 1. « miracle » ouvrait sa revelation sur « miraculeux »,
-    « crime » sur « criminel » — la premiere ligne que le joueur lit, perdue.
+    Le classement brut du modele, sans aucun filtre : ni etalement, ni
+    diversite, ni rejet des variantes du secret. Le seul mot absent est le
+    secret lui-meme, ecarte par `nearest`.
+
+    Les variantes — « fremir » pour « fremissant » — y ont donc leur place, et
+    c'est voulu. Les ecarter donnait un signal inverse : le joueur tapait le
+    mot le plus brulant de sa partie et n'obtenait aucun rang, alors que
+    l'absence de rang veut dire « loin ». Le rang ne montre aucun mot, il
+    situe celui que le joueur vient d'ecrire : le classer ne revele rien que
+    son score n'ait deja dit.
+
+    Consequence assumee sur la revelation d'apres-partie : elle peut s'ouvrir
+    sur une variante du secret. C'est le prix d'un classement qui dit la
+    verite pendant la partie, quand elle se joue.
     """
-    # Large marge de tete : la famille d'un mot se concentre precisement la ou
-    # on coupe. Vingt candidats de rab suffisaient a l'inclusion de chaine, qui
-    # n'ecartait presque rien ; ils ne suffisent plus.
-    out = []
-    for word, score in similarity.nearest(secret, k=count + 100):
-        if same_family(secret, word):
-            continue
-        out.append((word, score))
-        if len(out) == count:
-            break
-    return out
+    return similarity.nearest(secret, k=count, pool=similarity.POOL_PLAYABLE)
 
 
 def main() -> None:
@@ -72,8 +73,8 @@ def main() -> None:
     # bases existantes, qui ont deja leurs mots et leurs indices.
     Base.metadata.create_all(bind=engine)
 
-    print("Chargement du modele et de la matrice du vocabulaire...")
-    similarity.preload(with_matrix=True)
+    print("Chargement du modele et de la matrice du vocabulaire jouable...")
+    similarity.preload(matrices=(similarity.POOL_PLAYABLE,))
 
     db = SessionLocal()
     try:

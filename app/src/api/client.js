@@ -5,11 +5,15 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-import { API_BASE_URL } from './config';
+import { apiBaseUrl } from './config';
 
 export const ACCESS_TOKEN_KEY = 'lexik_access_token';
 
-const client = axios.create({ baseURL: API_BASE_URL, timeout: 15000 });
+// Pas de `baseURL` fige a la creation : en dev, l'adresse du serveur se change
+// depuis les reglages, et une instance creee au premier import continuerait de
+// parler a l'ancienne machine jusqu'au prochain redemarrage. Elle est donc
+// relue a chaque requete, plus bas.
+const client = axios.create({ timeout: 15000 });
 
 let isRefreshing = false;
 let queue = [];
@@ -20,12 +24,26 @@ export function setAuthLostHandler(fn) {
   onAuthLost = fn;
 }
 
+/**
+ * Jette le jeton et relance une connexion.
+ *
+ * Sert au changement de serveur de dev : le jeton a ete signe par la machine
+ * precedente, la nouvelle le refusera avec un 401 qui n'est pas TOKEN_EXPIRED
+ * — donc sans rafraichissement possible. Repartir d'une connexion propre est
+ * la seule issue, et c'est immediat en mode repli.
+ */
+export async function resetSession() {
+  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  if (onAuthLost) onAuthLost();
+}
+
 const flush = (error, token = null) => {
   queue.forEach((p) => (error ? p.reject(error) : p.resolve(token)));
   queue = [];
 };
 
 client.interceptors.request.use(async (config) => {
+  config.baseURL = apiBaseUrl();
   const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
@@ -50,7 +68,7 @@ client.interceptors.response.use(
       try {
         const old = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
         const res = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
+          `${apiBaseUrl()}/auth/refresh`,
           {},
           { headers: { Authorization: `Bearer ${old}` } },
         );

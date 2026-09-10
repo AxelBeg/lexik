@@ -51,12 +51,31 @@ cache = Cache(SIMILARITY_CACHE_DIR, size_limit=int(1e9))
 # jamais a juger l'equilibrage ou la sensation de jeu.
 FAKE_ENGINE = os.getenv("LEXIK_FAKE_ENGINE") == "1"
 
+# Les deux viviers de recherche de voisins. Ils ne servent pas a la meme chose
+# et ne doivent pas etre confondus :
+#
+#   POOL_HINTS     noms et adjectifs courants. Un INDICE est paye par le
+#                  joueur : il doit etre comprehensible, donc courant, et
+#                  nommer quelque chose — un verbe ou un adverbe fait un
+#                  mauvais indice.
+#   POOL_PLAYABLE  tout ce que le joueur a le droit de taper. Le RANG dit
+#                  « ou se situe ce que tu viens de proposer » : le classer
+#                  dans un vivier plus etroit que la saisie rendrait le rang
+#                  inatteignable pour les trois quarts du vocabulaire, verbes
+#                  et adverbes en tete.
+POOL_HINTS = "hints"
+POOL_PLAYABLE = "playable"
+
 _model = None
 # ce que le joueur a le droit de taper : large, ~35 000 mots
 _playable: dict[str, str] | None = None   # cle depouillee -> mot accentue
 # ce dans quoi on pioche les indices : etroit et courant, ~12 000 mots
 _hint_vocab: list[str] | None = None
-_hint_matrix: np.ndarray | None = None    # (N, 300) normalise L2, indices seulement
+_hint_keys: set[str] = set()          # les memes, en cles depouillees
+# vivier -> (mots, matrice (N, 300) normalisee L2). Construit a la demande par
+# preload(), jamais en production : seuls les scripts de precalcul en ont besoin.
+_vocabs: dict[str, list[str]] = {}
+_matrices: dict[str, np.ndarray] = {}
 _calibration: dict | None = None
 _lock = threading.Lock()
 
@@ -114,14 +133,15 @@ def _load_word_map(path) -> dict[str, str]:
 # Chargement
 # --------------------------------------------------------------------------
 
-def preload(with_matrix: bool = False) -> None:
+def preload(matrices: tuple[str, ...] = ()) -> None:
     """Charge le modele et le vocabulaire une fois pour toutes.
 
-    `with_matrix` construit en plus la matrice des vecteurs du vocabulaire, qui
-    ne sert qu'au precalcul des indices. Le serveur de jeu n'en a pas besoin :
-    ne pas l'activer en production, ca economise plusieurs centaines de Mo.
+    `matrices` construit en plus la matrice des vecteurs d'un ou plusieurs
+    viviers (POOL_HINTS, POOL_PLAYABLE), qui ne servent qu'aux scripts de
+    precalcul. Le serveur de jeu n'en a besoin d'aucune : ne rien demander en
+    production, ca economise plusieurs centaines de Mo.
     """
-    global _model, _playable, _hint_vocab, _hint_matrix, _calibration
+    global _model, _playable, _hint_vocab, _calibration
 
     with _lock:
         if _model is None and not FAKE_ENGINE:
@@ -152,14 +172,34 @@ def preload(with_matrix: bool = False) -> None:
         if _calibration is None:
             _calibration = _load_calibration()
 
-        if with_matrix and FAKE_ENGINE:
-            pass  # nearest() sait travailler sans matrice en mode factice
-        elif with_matrix and _hint_matrix is None:
-            print("Construction de la matrice des candidats indices...")
-            mat = np.stack([_model.get_word_vector(w) for w in _hint_vocab])
+            _hint_keys.update(normalize_key(w) for w in _hint_vocab)
+            _vocabs[POOL_HINTS] = _hint_vocab
+            _vocabs[POOL_PLAYABLE] = list(_playable.values())
+
+        for pool in matrices:
+            if pool not in _vocabs:
+                raise ValueError(f"Vivier inconnu : {pool!r}")
+            if FAKE_ENGINE:
+                continue  # nearest() sait travailler sans matrice en mode factice
+            if pool in _matrices:
+                continue
+            words = _vocabs[pool]
+            print(f"Construction de la matrice du vivier {pool} ({len(words)} mots)...")
+            mat = np.stack([_model.get_word_vector(w) for w in words])
             norms = np.linalg.norm(mat, axis=1, keepdims=True)
-            _hint_matrix = (mat / np.maximum(norms, 1e-9)).astype(np.float32)
-            print(f"Matrice prete : {_hint_matrix.shape}")
+            _matrices[pool] = (mat / np.maximum(norms, 1e-9)).astype(np.float32)
+            print(f"Matrice prete : {_matrices[pool].shape}")
+
+
+def is_hint_word(word: str) -> bool:
+    """Ce mot ferait-il un indice acceptable ?
+
+    Sert au runtime, quand l'indice precalcule est deja sur la carte du joueur
+    et qu'il faut lui substituer un voisin : un voisin quelconque ne convient
+    pas, il doit passer le meme filtre que les indices — nom ou adjectif
+    courant (data/hint_words.json).
+    """
+    return normalize_key(word) in _hint_keys
 
 
 def is_loaded() -> bool:
@@ -299,42 +339,52 @@ def score_guess(secret: str, guess: str) -> dict:
 
 
 # --------------------------------------------------------------------------
-# Plus proches voisins (precalcul des indices uniquement)
+# Plus proches voisins (precalcul hors ligne uniquement)
 # --------------------------------------------------------------------------
 
-def nearest(secret: str, k: int = 200) -> list[tuple[str, float]]:
-    """Les k candidats-indices les plus proches, score de jeu decroissant.
+def nearest(secret: str, k: int = 200,
+            pool: str = POOL_HINTS) -> list[tuple[str, float]]:
+    """Les k mots du vivier les plus proches, score de jeu decroissant.
 
-    Cherche dans le vocabulaire COURANT, pas dans tout ce que le joueur a le
-    droit de taper : un indice fait d'un mot rare n'apprend rien.
+    Le vivier est un choix de gameplay, pas un reglage de performance :
 
-    Necessite preload(with_matrix=True). N'est jamais appele pendant une partie.
+    - POOL_HINTS pour les INDICES. Un indice fait d'un mot rare n'apprend
+      rien, et le joueur l'a paye.
+    - POOL_PLAYABLE pour le RANG et la revelation d'apres-partie. Le rang
+      situe une proposition : le tirer d'un vivier plus etroit que la saisie
+      priverait de rang tout ce qui n'est ni nom ni adjectif courant — soit
+      les trois quarts du vocabulaire jouable, verbes et adverbes compris.
+
+    Necessite preload(matrices=(pool,)). N'est jamais appele pendant une partie.
     """
+    words = _vocabs.get(pool)
+    if words is None:
+        raise RuntimeError("Vocabulaire non precharge (appeler preload()).")
+
     if FAKE_ENGINE:
-        if _hint_vocab is None:
-            raise RuntimeError("Vocabulaire non precharge.")
         scored = [
             (w, to_game_score(_fake_cosine(secret, w)))
-            for w in _hint_vocab if not same_word(w, secret)
+            for w in words if not same_word(w, secret)
         ]
         scored.sort(key=lambda c: -c[1])
         return scored[:k]
 
-    if _hint_matrix is None or _hint_vocab is None:
-        raise RuntimeError("nearest() exige preload(with_matrix=True).")
+    matrix = _matrices.get(pool)
+    if matrix is None:
+        raise RuntimeError(f"nearest() exige preload(matrices=({pool!r},)).")
 
     model = _require_model()
     v = model.get_word_vector(secret)
     v = v / max(float(np.linalg.norm(v)), 1e-9)
 
-    cosines = _hint_matrix @ v
+    cosines = matrix @ v
     k_eff = min(k + 1, len(cosines))
     top = np.argpartition(-cosines, k_eff - 1)[:k_eff]
     top = top[np.argsort(-cosines[top])]
 
     out: list[tuple[str, float]] = []
     for i in top:
-        word = _hint_vocab[i]
+        word = words[i]
         if same_word(word, secret):
             continue
         out.append((word, to_game_score(float(cosines[i]))))
