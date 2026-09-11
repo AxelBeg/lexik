@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lexik — Puzzle sémantique quotidien</title>
+  <meta name="description" content="Lexik, un mot par jour. Tous les joueurs. Disponible sur Android.">
+  <link rel="canonical" href="https://lexik.app/">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap">
+  <style>
+    :root {
+      --bg: #f7f6f4;
+      --surface: #ffffff;
+      --border: #e4e3df;
+      --text: #16181d;
+      --text-dim: #6f7078;
+      --accent: #d1651c;
+      --accent-hover: #b5540f;
+      --raised: #16181d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem 2.5rem;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+    .brand {
+      font-size: 2.25rem; font-weight: 600; letter-spacing: 0.32em;
+      text-indent: 0.32em; line-height: 1; margin: 0;
+    }
+    .dots { display: flex; gap: 7px; align-items: center; margin: 1.1rem 0 2.2rem; }
+    .dots i { width: 5px; height: 5px; border-radius: 3px; display: block; }
+    .tag { color: var(--text-dim); font-size: 1.05rem; margin: 0 0 2rem; text-align: center; }
+    .store {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--raised); color: #fff; font-weight: 500;
+      font-size: 0.95rem; border-radius: 22px; height: 44px; padding: 0 1.35rem;
+    }
+    .store:hover { color: #fff; opacity: 0.88; }
+    footer {
+      margin-top: auto; padding-top: 3rem;
+      font-size: 0.85rem; color: var(--text-dim);
+      display: flex; gap: 1.1rem; flex-wrap: wrap; justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="brand">LEXIK</h1>
+  <div class="dots" aria-hidden="true">
+    <i style="background:#34489a"></i>
+    <i style="background:#3560ad"></i>
+    <i style="background:#47789b"></i>
+    <i style="background:#86775c"></i>
+    <i style="background:#b57a1e"></i>
+    <i style="background:#d1651c"></i>
+    <i style="background:#cf2d18"></i>
+  </div>
+  <p class="tag">Un mot, tous les joueurs.</p>
+  <a class="store" href="https://play.google.com/store/apps/details?id=com.beginz.lexik">Disponible sur Google Play</a>
+  <footer>
+    <a href="/confidentialite">Confidentialité</a>
+    <a href="/compte">Supprimer mon compte</a>
+  </footer>
+</body>
+</html>

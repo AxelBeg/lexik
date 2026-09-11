@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Politique de confidentialité — Lexik</title>
+  <meta name="description" content="Comment Lexik collecte, utilise et protège les données des joueurs et des appareils.">
+  <link rel="canonical" href="https://lexik.app/confidentialite">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap">
+  <style>
+    :root {
+      --bg: #f7f6f4;
+      --surface: #ffffff;
+      --border: #e4e3df;
+      --border-strong: #d8d7d3;
+      --text: #16181d;
+      --text-muted: #4a4c54;
+      --text-dim: #6f7078;
+      --text-ghost: #a3a5ad;
+      --accent: #d1651c;
+      --accent-hover: #b5540f;
+      --raised: #16181d;
+      --track: #eceae6;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+    .wrap { max-width: 40rem; margin: 0 auto; padding: 2.5rem 1.5rem 4.5rem; }
+    header { display: flex; flex-direction: column; align-items: center; gap: 0.85rem; margin-bottom: 2.75rem; }
+    .brand {
+      font-size: 1.65rem; font-weight: 600; letter-spacing: 0.32em;
+      text-indent: 0.32em; line-height: 1; color: var(--text);
+    }
+    .dots { display: flex; gap: 7px; align-items: center; }
+    .dots i { width: 5px; height: 5px; border-radius: 3px; display: block; }
+    nav.crumbs { width: 100%; font-size: 0.8rem; color: var(--text-dim); }
+    h1 { font-size: 1.85rem; font-weight: 600; line-height: 1.15; margin: 0 0 0.4rem; }
+    .lede { color: var(--text-dim); margin: 0 0 1.5rem; }
+    .meta {
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.72rem; color: var(--text-ghost); margin-bottom: 1.75rem;
+    }
+    .toc {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.15rem 1.25rem 1.25rem; margin: 0 0 2.5rem;
+    }
+    .toc .label {
+      font-size: 0.68rem; font-weight: 500; letter-spacing: 0.2em;
+      color: var(--text-dim); margin-bottom: 0.7rem;
+    }
+    .toc ol { margin: 0; padding: 0 0 0 1.15rem; }
+    .toc li { margin: 0.28rem 0; }
+    .toc a { color: var(--text); }
+    .toc a:hover { color: var(--accent); }
+    h2 {
+      font-size: 1.15rem; font-weight: 600; margin: 2.4rem 0 0.7rem;
+      padding-top: 0.4rem;
+    }
+    h2 .n {
+      display: block; font-size: 0.68rem; font-weight: 500;
+      letter-spacing: 0.2em; color: var(--text-dim); margin-bottom: 0.35rem;
+    }
+    p { margin: 0.65rem 0; color: var(--text-muted); }
+    ul, ol { margin: 0.5rem 0 0.8rem; padding-left: 1.2rem; color: var(--text-muted); }
+    li { margin: 0.28rem 0; }
+    strong { color: var(--text); font-weight: 600; }
+    table {
+      width: 100%; border-collapse: collapse; margin: 1rem 0 1.2rem;
+      font-size: 0.9rem; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    }
+    th, td { text-align: left; vertical-align: top; padding: 0.7rem 0.85rem; border-bottom: 1px solid var(--border); }
+    th { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); background: var(--track); }
+    tr:last-child td { border-bottom: 0; }
+    td { color: var(--text-muted); }
+    td:first-child { color: var(--text); font-weight: 500; width: 34%; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.15rem 1.25rem; margin: 1rem 0;
+    }
+    .card p:first-child { margin-top: 0; }
+    .card p:last-child { margin-bottom: 0; }
+    footer {
+      margin-top: 3rem; padding-top: 1.4rem; border-top: 1px solid var(--border);
+      font-size: 0.85rem; color: var(--text-dim);
+    }
+    footer nav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin-bottom: 0.7rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="/" style="color: inherit;">LEXIK</a>
+      <div class="dots" aria-hidden="true">
+        <i style="background:#34489a"></i>
+        <i style="background:#3560ad"></i>
+        <i style="background:#47789b"></i>
+        <i style="background:#86775c"></i>
+        <i style="background:#b57a1e"></i>
+        <i style="background:#d1651c"></i>
+        <i style="background:#cf2d18"></i>
+      </div>
+    </header>
+
+    <h1>Politique de confidentialité</h1>
+    <p class="lede">Cette page décrit, de façon exhaustive, les données que Lexik traite — y compris les identifiants d’appareil et l’identifiant publicitaire — et les raisons pour lesquelles elle le fait.</p>
+    <div class="meta">
+      <span>Dernière mise à jour&nbsp;: 10 septembre 2026</span>
+      <span>Application Android <span style="letter-spacing:0">com.beginz.lexik</span></span>
+    </div>
+
+    <nav class="toc" aria-label="Sommaire">
+      <div class="label">SOMMAIRE</div>
+      <ol>
+        <li><a href="#editeur">Éditeur et responsable</a></li>
+        <li><a href="#donnees">Données collectées</a></li>
+        <li><a href="#usages">Finalités et bases légales</a></li>
+        <li><a href="#publicite">Publicité et identifiant publicitaire</a></li>
+        <li><a href="#partenaires">Partenaires</a></li>
+        <li><a href="#conservation">Conservation</a></li>
+        <li><a href="#droits">Vos droits</a></li>
+        <li><a href="#suppression">Suppression du compte</a></li>
+        <li><a href="#enfants">Enfants</a></li>
+        <li><a href="#securite">Sécurité</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="editeur"><span class="n">01</span>Éditeur et responsable du traitement</h2>
+    <p>Lexik est un jeu de puzzle sémantique (mot du jour et campagne) édité par <strong>Beginz</strong>. Beginz est le responsable du traitement des données décrites dans cette politique, pour l’application Android Lexik (identifiant <strong>com.beginz.lexik</strong>) et pour les serveurs qui la font fonctionner (<strong>api.lexik.app</strong>).</p>
+    <p>Contact&nbsp;: <a href="mailto:gbzgames37@gmail.com">gbzgames37@gmail.com</a>.</p>
+    <p>Lexik ne crée pas de profil nominatif. Il n’y a ni adresse e-mail, ni nom, ni mot de passe à nous communiquer pour jouer. Le compte est un identifiant technique, rattaché soit à Play Jeux, soit à l’appareil.</p>
+
+    <h2 id="donnees"><span class="n">02</span>Données collectées</h2>
+    <p>Voici l’inventaire complet. Lexik ne collecte pas d’autres catégories que celles-ci.</p>
+    <table>
+      <thead>
+        <tr><th>Donnée</th><th>Ce que c’est</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Identifiant de compte</td>
+          <td>Un identifiant interne (UUID) créé par nos serveurs. Il n’est pas un nom, ni une adresse e-mail.</td>
+        </tr>
+        <tr>
+          <td>Identifiant Play Jeux</td>
+          <td>Le <em>playerId</em> Google Play Jeux, obtenu uniquement si vous rattachez votre progression. Nous demandons la portée <em>games_lite</em>&nbsp;: pas d’e-mail, pas de profil public, pas de liste de contacts. Google nous confirme l’identité du joueur&nbsp;; l’application n’envoie jamais cet identifiant elle-même.</td>
+        </tr>
+        <tr>
+          <td>Identifiant d’appareil</td>
+          <td>Un identifiant aléatoire généré par l’application et stocké de façon sécurisée sur le téléphone, utilisé seulement si Play Jeux n’est pas disponible. Ce n’est pas le numéro de série du téléphone, ni l’identifiant publicitaire.</td>
+        </tr>
+        <tr>
+          <td>Données de jeu</td>
+          <td>Niveaux terminés, propositions de mots, scores, indices utilisés, monnaie d’indices, série de connexion, résultat du mot du jour (nombre d’essais, pour le percentile collectif).</td>
+        </tr>
+        <tr>
+          <td>Activité du compte</td>
+          <td>Date de création, dernière activité, nombre de publicités récompensées vues dans la journée (pour plafonner à trois).</td>
+        </tr>
+        <tr>
+          <td>Identifiant publicitaire</td>
+          <td>L’identifiant publicitaire Android (AAID / GAID), lu par le SDK Google AdMob lorsque vous voyez une vidéo récompensée. Voir la section&nbsp;4.</td>
+        </tr>
+        <tr>
+          <td>Données techniques d’appareil</td>
+          <td>Informations habituelles d’une requête HTTPS (adresse IP, date, endpoint) côté serveur, et, côté publicité, des informations d’appareil transmises à Google (modèle, version d’Android, langue, opérateur, le cas échéant). Lexik n’accède ni à la localisation précise, ni aux contacts, ni au microphone, ni aux photos.</td>
+        </tr>
+        <tr>
+          <td>Jetons de session</td>
+          <td>Un jeton d’authentification stocké dans le coffre sécurisé du téléphone (SecureStore), pour vous reconnecter sans écran de connexion.</td>
+        </tr>
+        <tr>
+          <td>Préférences locales</td>
+          <td>Sur l’appareil uniquement&nbsp;: cache d’affichage, et le fait que la permission de notification a déjà été demandée. Ce fichier est jetable.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>Lexik ne collecte pas</strong>&nbsp;: nom, prénom, adresse e-mail, numéro de téléphone, contacts, photos, fichiers, données de santé, données financières (le paiement des packs éventuels est entièrement traité par Google Play), localisation GPS, historique d’appels ou de SMS, ni identifiant de publicité à nos propres fins de profilage.</p>
+    <p><strong>Notifications.</strong> Le rappel du mot du jour est programmé <em>sur l’appareil</em>. Aucun jeton de notification push n’est envoyé à nos serveurs. La permission n’est demandée qu’après une première victoire quotidienne, et peut être retirée dans les réglages Android.</p>
+    <p><strong>Partage.</strong> Le message de victoire passe par la feuille de partage du système. Lexik ne lit pas votre liste de contacts et n’y a pas accès.</p>
+
+    <h2 id="usages"><span class="n">03</span>Finalités et bases légales</h2>
+    <p>Dans l’Union européenne et au Royaume-Uni, chaque traitement repose sur une base du RGPD.</p>
+    <ul>
+      <li><strong>Fournir le jeu</strong> (compte, progression, scoring, percentile, reprise de partie)&nbsp;: exécution du contrat, art.&nbsp;6.1.b.</li>
+      <li><strong>Sécuriser le service</strong> (jetons, journaux techniques, vérification Play Jeux côté serveur)&nbsp;: intérêt légitime, art.&nbsp;6.1.f.</li>
+      <li><strong>Publicités récompensées</strong> (identifiant publicitaire, données d’appareil transmises à Google)&nbsp;: consentement, art.&nbsp;6.1.a, recueilli dans l’Espace économique européen, au Royaume-Uni et en Suisse via le formulaire de consentement Google (UMP) avant toute publicité personnalisée.</li>
+      <li><strong>Achats intégrés</strong>, lorsqu’ils sont proposés (packs d’indices via Google Play)&nbsp;: exécution du contrat. Lexik ne reçoit pas vos données de carte&nbsp;; seulement de quoi créditer le pack une fois l’achat vérifié.</li>
+    </ul>
+    <p>Nous n’utilisons pas vos propositions de mots, ni votre progression, pour vous profiler à des fins publicitaires.</p>
+
+    <h2 id="publicite"><span class="n">04</span>Publicité et identifiant publicitaire</h2>
+    <p>Lexik affiche uniquement des <strong>publicités vidéo récompensées</strong>, via <strong>Google AdMob</strong> (Google Ireland Limited / Google LLC). Une vidéo vue jusqu’au bout crédite des indices. Le plafond est de trois par jour, compté sur nos serveurs.</p>
+    <p>Pour servir ces publicités, Google peut traiter notamment&nbsp;:</p>
+    <ul>
+      <li>l’<strong>identifiant publicitaire Android</strong> (donnée sensible au sens des règles Play Store relatives aux données utilisateur et appareil)&nbsp;;</li>
+      <li>l’adresse IP, le type d’appareil, la langue, le fuseau, des signaux d’interaction avec l’annonce&nbsp;;</li>
+      <li>un identifiant de consentement issu du formulaire UMP, dans les territoires où il s’applique.</li>
+    </ul>
+    <p>Dans l’EEE, au Royaume-Uni et en Suisse, un formulaire de consentement s’affiche avant les publicités personnalisées. Vous pouvez refuser&nbsp;: le jeu reste jouable, les publicités éventuellement montrées sont alors non personnalisées, dans la mesure où le réseau publicitaire le permet.</p>
+    <p>Vous pouvez aussi réinitialiser ou désactiver l’identifiant publicitaire dans les réglages Android (Confidentialité / Google / Publicités, selon la version).</p>
+    <p>Google traite ces données selon sa propre politique&nbsp;:</p>
+    <ul>
+      <li><a href="https://policies.google.com/privacy">Règles de confidentialité de Google</a></li>
+      <li><a href="https://policies.google.com/technologies/partner-sites">Comment Google utilise les données des partenaires</a></li>
+      <li><a href="https://support.google.com/admob/answer/6128543">Confidentialité AdMob</a></li>
+    </ul>
+    <p>Lexik n’intègre pas de kit d’analyse d’audience propre (pas de Firebase Analytics, pas de Crashlytics, pas de pixel de réseau social).</p>
+
+    <h2 id="partenaires"><span class="n">05</span>Partenaires et transferts</h2>
+    <p>Nous ne vendons pas vos données. Elles sont communiquées seulement aux destinataires nécessaires&nbsp;:</p>
+    <ul>
+      <li><strong>Google Play Jeux</strong> — pour vérifier l’identité du joueur lorsque vous rattachez un compte (portée <em>games_lite</em> uniquement).</li>
+      <li><strong>Google AdMob</strong> — pour les publicités récompensées, comme décrit ci-dessus.</li>
+      <li><strong>Google Play</strong> — pour la distribution de l’application et, le cas échéant, les achats intégrés.</li>
+      <li><strong>L’hébergeur de nos serveurs</strong> — pour faire tourner l’API de jeu et la base de progression.</li>
+    </ul>
+    <p>Google est établi notamment aux États-Unis. Lorsque des données sont transférées hors de l’Union européenne, elles le sont selon les mécanismes prévus par Google (clauses contractuelles types et, le cas échéant, cadre d’adéquation en vigueur). Le consentement publicitaire, quand il est requis, porte aussi sur ce recours à Google.</p>
+
+    <h2 id="conservation"><span class="n">06</span>Conservation</h2>
+    <ul>
+      <li><strong>Compte et progression</strong>&nbsp;: tant que le compte existe, puis suppression dès que vous le demandez (voir section&nbsp;8).</li>
+      <li><strong>Résultats du mot du jour</strong>&nbsp;: attachés au compte&nbsp;; ils disparaissent avec lui. Les statistiques collectives (médiane, percentile) sont des agrégats et ne permettent plus de vous identifier après suppression.</li>
+      <li><strong>Identifiant d’appareil</strong>&nbsp;: sur le téléphone, jusqu’à désinstallation ou suppression du compte. Sur le serveur, jusqu’à suppression du compte.</li>
+      <li><strong>Journaux techniques</strong>&nbsp;: le temps nécessaire à la sécurité et au diagnostic, puis suppression.</li>
+      <li><strong>Données publicitaires</strong>&nbsp;: conservées par Google selon sa politique, pas dans la base Lexik (nous ne stockons que le compteur quotidien «&nbsp;vidéos vues&nbsp;»).</li>
+    </ul>
+
+    <h2 id="droits"><span class="n">07</span>Vos droits</h2>
+    <p>Conformément au RGPD, vous pouvez demander l’accès, la rectification, l’effacement, la limitation, la portabilité (dans la mesure où les données existent sous une forme portable) et, le cas échéant, retirer votre consentement publicitaire sans que le jeu cesse de fonctionner.</p>
+    <p>Pour exercer ces droits&nbsp;: depuis l’application (Réglages) ou par e-mail à <a href="mailto:gbzgames37@gmail.com">gbzgames37@gmail.com</a>. Si vous jouez via Play Jeux, indiquez l’adresse du compte Google lié au jeu, afin que nous puissions retrouver le bon identifiant.</p>
+    <p>Vous pouvez aussi introduire une réclamation auprès de la <a href="https://www.cnil.fr/">CNIL</a>.</p>
+
+    <h2 id="suppression"><span class="n">08</span>Suppression du compte</h2>
+    <div class="card">
+      <p><strong>Depuis l’application</strong> — Réglages → Supprimer mon compte. La suppression est immédiate et irréversible&nbsp;: progression, monnaie, historique de propositions, identifiants de connexion.</p>
+      <p><strong>Sans l’application</strong> — utilisez la <a href="/compte">page de suppression de compte</a>, ou écrivez à <a href="mailto:gbzgames37@gmail.com">gbzgames37@gmail.com</a>. Nous traitons la demande sous 30 jours.</p>
+    </div>
+    <p>Désinstaller Lexik ne supprime pas le compte serveur. Il faut passer par l’une des voies ci-dessus. La suppression Lexik n’efface pas les données que Google détient pour son propre compte (Play Jeux, AdMob)&nbsp;; pour celles-là, voyez les réglages de votre compte Google.</p>
+
+    <h2 id="enfants"><span class="n">09</span>Enfants</h2>
+    <p>Lexik n’est pas destinée aux enfants de moins de 16 ans et n’est pas un service «&nbsp;conçu pour les familles&nbsp;». Nous ne collectons pas sciemment de données d’enfants. Si vous pensez qu’un mineur de moins de 16 ans a un compte, contactez-nous&nbsp;: nous le supprimerons.</p>
+
+    <h2 id="securite"><span class="n">10</span>Sécurité</h2>
+    <p>Les communications avec nos serveurs passent par HTTPS. Les jetons et l’identifiant d’appareil vivent dans le stockage sécurisé du système. L’application n’envoie jamais un identifiant Play Jeux inventé par le téléphone&nbsp;: seul un code d’autorisation, vérifié auprès de Google par le serveur, établit l’identité.</p>
+    <p>Aucune mesure n’est infaillible. En cas d’incident qui concernerait vos données, nous vous en informerons lorsque la loi l’exige.</p>
+
+    <h2 id="modifs"><span class="n">11</span>Modifications</h2>
+    <p>Si cette politique change de façon substantielle — par exemple un nouveau partenaire publicitaire, ou la collecte d’une nouvelle catégorie de données — la date en tête de page sera mise à jour. La version publiée à <a href="https://lexik.app/confidentialite">lexik.app/confidentialite</a> fait foi.</p>
+
+    <h2 id="contact"><span class="n">12</span>Contact</h2>
+    <p>Beginz — Lexik<br>
+      E-mail&nbsp;: <a href="mailto:gbzgames37@gmail.com">gbzgames37@gmail.com</a><br>
+      Application&nbsp;: com.beginz.lexik</p>
+
+    <footer>
+      <nav>
+        <a href="/">Accueil</a>
+        <a href="/compte">Supprimer mon compte</a>
+        <a href="https://play.google.com/store/apps/details?id=com.beginz.lexik">Play Store</a>
+      </nav>
+      <div>Lexik · Beginz</div>
+    </footer>
+  </div>
+</body>
+</html>
